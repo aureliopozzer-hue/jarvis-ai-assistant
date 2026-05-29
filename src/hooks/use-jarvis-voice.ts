@@ -66,6 +66,40 @@ function chunkText(text: string, maxLen = 3900): string[] {
   return chunks;
 }
 
+// ─── Preprocess text for more natural speech ─────────────────────────
+
+function preprocessForSpeech(text: string): string {
+  return text
+    // Strip markdown code blocks
+    .replace(/```[\s\S]*?```/g, '')
+    // Strip inline code
+    .replace(/`[^`]+`/g, '')
+    // Strip bold/italic markers
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    // Strip links, keep text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Strip headings
+    .replace(/^#{1,6}\s+/gm, '')
+    // Strip list markers
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    // Add natural pauses: replace double newlines with a pause marker
+    .replace(/\n{2,}/g, '... ')
+    // Replace single newlines with a short pause
+    .replace(/\n/g, '. ')
+    // Convert numbers with comma to natural speech (1,000 → 1000)
+    .replace(/(\d),(\d{3})/g, '$1$2')
+    // Add pauses after colons
+    .replace(/:\s*/g, '... ')
+    // Add pauses before "mas", "porém", "entretanto" (natural Portuguese pauses)
+    .replace(/\s+(mas|porém|entretanto|contudo|todavia|no entanto)\s*/gi, '... $1 ')
+    // Clean up multiple periods/spaces
+    .replace(/\.{2,}/g, '...')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export function useJarvisVoice(): UseJarvisVoiceReturn {
   const [state, setState] = useState<VoiceState>('idle');
   const [volume, setVolumeState] = useState(1);
@@ -125,16 +159,22 @@ export function useJarvisVoice(): UseJarvisVoiceReturn {
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      // Slightly slower rate for natural, authoritative JARVIS feel
+      utterance.rate = 0.92;
+      // Slightly lower pitch for a more masculine, confident tone
+      utterance.pitch = 0.95;
       utterance.volume = vol;
 
-      // Try to find a good English or Portuguese voice
+      // Try to find the best voice for JARVIS — prefer Google PT-BR, then any PT, then Google EN
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice =
-        voices.find((v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('google')) ||
-        voices.find((v) => v.lang.startsWith('en')) ||
+        voices.find((v) => v.lang.startsWith('pt-BR') && v.name.toLowerCase().includes('google')) ||
+        voices.find((v) => v.lang.startsWith('pt-BR')) ||
         voices.find((v) => v.lang.startsWith('pt')) ||
+        voices.find((v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('male')) ||
+        voices.find((v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('google')) ||
+        voices.find((v) => v.lang.startsWith('en') && !v.name.toLowerCase().includes('female')) ||
+        voices.find((v) => v.lang.startsWith('en')) ||
         voices[0];
 
       if (preferredVoice) {
@@ -262,14 +302,17 @@ export function useJarvisVoice(): UseJarvisVoiceReturn {
   const speak = useCallback(
     async (text: string, options?: SpeakOptions) => {
       if (typeof window === 'undefined') return;
-      if (!text.trim()) return;
+
+      // Preprocess text for more natural speech
+      const processedText = preprocessForSpeech(text);
+      if (!processedText.trim()) return;
 
       const vol = options?.volume ?? volume;
       const shouldQueue = options?.queue ?? false;
 
       if (shouldQueue) {
         // Add to queue and process
-        audioQueueRef.current.push(text);
+        audioQueueRef.current.push(processedText);
         setQueueLength(audioQueueRef.current.length);
         processQueue();
       } else {
@@ -281,7 +324,7 @@ export function useJarvisVoice(): UseJarvisVoiceReturn {
         setQueueLength(0);
 
         // Chunk and play sequentially
-        const chunks = chunkText(text);
+        const chunks = chunkText(processedText);
         setState('loading');
 
         for (let i = 0; i < chunks.length; i++) {

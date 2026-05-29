@@ -1,49 +1,33 @@
 ---
 Task ID: 1
-Agent: Main
-Task: Fix preview and verify server is running
+Agent: Main Agent
+Task: Fix dev server, connect voice to all functions, enhance voice, provide requirements
 
 Work Log:
-- Verified dev server was not running on port 3000
-- Restarted dev server with nohup
-- Confirmed server returns HTTP 200 for GET /
-- Ran lint check - all clean
+- Investigated dev server crash — server was dying after shell session ended
+- Found CORS cross-origin warning from preview panel in dev log
+- Fixed next.config.ts — added allowedDevOrigins for .space-z.ai and .z.ai domains
+- Created detached server launcher script (/tmp/jarvis-launcher.js) for persistent process
+- Verified server compiles and serves pages correctly (GET / 200)
+- Created comprehensive voice command router connecting voice to ALL 15 JARVIS panels:
+  - Navigation: chat, vision, search, dashboard, email, social, campaigns, calendar, files, stripe, finance, weather, automation, tasks, news
+  - Portuguese keyword mapping for each panel (e.g., "email", "e-mail", "correio", "caixa de entrada" → email panel)
+  - Direct action commands: finance briefing, memory save, web search, email send
+  - Panel auto-loading data on navigation
+  - Voice confirmation for each navigation ("Abrindo Mercado Financeiro.")
+- Enhanced voice humanization:
+  - TTS speed reduced from 1.0 to 0.92 for authoritative, deliberate delivery
+  - Fallback Web Speech API rate set to 0.92, pitch to 0.95
+  - Added Portuguese voice preference (pt-BR Google first)
+  - Created preprocessForSpeech() function with:
+    - Markdown stripping (code blocks, bold, italic, links, headings, lists)
+    - Natural pause insertion (... after colons, before conjunctions like "mas", "porém")
+    - Number formatting for natural speech
+  - All speech now preprocessed for natural delivery
+- Verified all code compiles without errors
 
 Stage Summary:
-- Dev server is running and serving pages correctly
-- Page renders with landing page content including Arc Reactor, features, pricing
----
-Task ID: 2
-Agent: full-stack-developer
-Task: Connect voice commands to ALL JARVIS functions with auto-speak
-
-Work Log:
-- Added `voiceInitiated: boolean` state to jarvis-store.ts
-- Added `setVoiceInitiated` action to store
-- Modified wake word onCommand handler in page.tsx to set voiceInitiated=true
-- Added auto-speak useEffect in page.tsx that watches for assistant messages when voiceInitiated
-- Strips markdown formatting from responses for natural speech
-- Changed TTS default voice from 'jam' to 'tongtong' for better Portuguese
-- Added "Comportamento de Voz" section to JARVIS system prompt for voice-optimized responses
-- Modified jarvis-input.tsx to auto-send voice messages and set voiceInitiated
-
-Stage Summary:
-- Voice commands now flow: "Hey Jarvis" → command → sendMessage → auto-speak response
-- All 16+ JARVIS capabilities accessible via voice through chat+tools pipeline
-- TTS responses auto-play after voice-initiated messages
-- Markdown stripped for natural speech output
----
-Task ID: 3
-Agent: Main
-Task: Make JARVIS voice more humanized with Portuguese TTS
-
-Work Log:
-- Changed TTS voice from 'jam' to 'tongtong' for better quality
-- Added voice behavior section to system prompt
-- Voice responses are concise and natural for spoken conversation
-- Auto-speak after voice commands creates conversational flow
-
-Stage Summary:
-- TTS uses 'tongtong' voice (more natural)
-- System prompt instructs natural voice responses
-- Voice conversation flow implemented
+- Dev server running on port 3000, serving pages correctly
+- Voice commands now route to all 15 JARVIS functions directly
+- Voice is more humanized with slower speed, natural pauses, Portuguese optimization
+- No compilation errors

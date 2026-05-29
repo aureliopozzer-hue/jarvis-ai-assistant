@@ -792,6 +792,118 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
   // Voice hook for greeting and auto-speak
   const { speak: speakVoice } = useJarvisVoice();
 
+  // ─── Voice Command Router ──────────────────────────────────────────────
+  const routeVoiceCommand = (cmd: string): boolean => {
+    const store = useJarvisStore.getState();
+    const c = cmd.toLowerCase().trim();
+
+    // Navigation commands — instantly switch panels
+    const navMap: Record<string, string> = {
+      'chat': 'chat', 'conversa': 'chat', 'conversar': 'chat', 'mensagem': 'chat', 'mensagens': 'chat',
+      'visão': 'vision', 'visao': 'vision', 'imagem': 'vision', 'ver imagem': 'vision', 'analisar imagem': 'vision',
+      'busca': 'search', 'buscar': 'search', 'pesquisa': 'search', 'pesquisar': 'search', 'procurar': 'search',
+      'painel': 'dashboard', 'dashboard': 'dashboard', 'sistema': 'dashboard', 'status': 'dashboard', 'monitor': 'dashboard',
+      'email': 'email', 'e-mail': 'email', 'correio': 'email', 'caixa de entrada': 'email', 'ler email': 'email', 'ler e-mail': 'email', 'ver email': 'email', 'emails': 'email',
+      'social': 'social', 'redes sociais': 'social', 'rede social': 'social', 'instagram': 'social', 'twitter': 'social', 'postar': 'social',
+      'campanha': 'campaigns', 'campanhas': 'campaigns', 'marketing': 'campaigns', 'anúncio': 'campaigns', 'anuncios': 'campaigns',
+      'calendário': 'calendar', 'calendario': 'calendar', 'agenda': 'calendar', 'evento': 'calendar', 'eventos': 'calendar', 'reunião': 'calendar', 'reuniao': 'calendar',
+      'arquivo': 'files', 'arquivos': 'files', 'documento': 'files', 'documentos': 'files', 'pasta': 'files',
+      'pagamento': 'stripe', 'pagamentos': 'stripe', 'stripe': 'stripe', 'cobrança': 'stripe', 'cobranca': 'stripe', 'assinatura': 'stripe', 'faturamento': 'stripe',
+      'finança': 'finance', 'financas': 'finance', 'financeiro': 'finance', 'mercado': 'finance', 'bolsa': 'finance', 'ação': 'finance', 'acoes': 'finance', 'cotacao': 'finance', 'cotação': 'finance', 'ibovespa': 'finance', 'dólar': 'finance', 'dolar': 'finance', 'bitcoin': 'finance', 'cripto': 'finance',
+      'clima': 'weather', 'tempo': 'weather', 'previsão': 'weather', 'previsao': 'weather', 'temperatura': 'weather', 'chuva': 'weather',
+      'automação': 'automation', 'automacao': 'automation', 'automatizar': 'automation', 'rotina': 'automation', 'rotinas': 'automation', 'workflow': 'automation',
+      'tarefa': 'tasks', 'tarefas': 'tasks', 'todo': 'tasks', 'to-do': 'tasks', 'projeto': 'tasks', 'projetos': 'tasks',
+      'notícia': 'news', 'noticias': 'news', 'notícia': 'news', 'jornal': 'news', 'informação': 'news', 'informacoes': 'news',
+    };
+
+    // Check navigation first
+    for (const [keyword, panel] of Object.entries(navMap)) {
+      if (c.includes(keyword)) {
+        setActivePanel(panel as any);
+        playSuccess();
+        // Trigger data loading for the panel
+        switch (panel) {
+          case 'email': store.loadEmails(); break;
+          case 'social': store.loadSocialData(); break;
+          case 'campaigns': store.loadCampaigns(); break;
+          case 'calendar': store.loadCalendarEvents(); break;
+          case 'files': store.loadFiles(); break;
+          case 'stripe': store.loadStripeConfig(); break;
+          case 'finance': store.loadFinanceQuotes(); store.loadFinanceNews(); store.loadFinanceWatchlist(); store.loadFinanceAlerts(); break;
+          case 'weather': store.loadWeather('São Paulo'); break;
+          case 'automation': store.loadAutomations(); break;
+          case 'tasks': store.loadTasks(); store.loadProjects(); break;
+          case 'news': store.loadNews(); break;
+          case 'dashboard': break;
+          case 'vision': break;
+          case 'search': break;
+          case 'chat': break;
+        }
+        // Speak a confirmation
+        const panelNames: Record<string, string> = {
+          chat: 'Conversa', vision: 'Visão Computacional', search: 'Busca na Web',
+          dashboard: 'Painel do Sistema', email: 'E-mail', social: 'Redes Sociais',
+          campaigns: 'Campanhas de Marketing', calendar: 'Calendário', files: 'Arquivos',
+          stripe: 'Pagamentos', finance: 'Mercado Financeiro', weather: 'Previsão do Tempo',
+          automation: 'Automações', tasks: 'Tarefas', news: 'Notícias',
+        };
+        speakVoice(`Abrindo ${panelNames[panel] || panel}.`);
+        return true;
+      }
+    }
+
+    // Direct action commands — trigger store functions + navigate
+    // Finance-specific commands
+    if (c.includes('panorama') || c.includes('resumo financeiro') || c.includes('briefing')) {
+      setActivePanel('finance');
+      store.loadFinanceBriefing();
+      speakVoice('Gerando panorama financeiro do dia.');
+      return true;
+    }
+
+    // Memory commands
+    if (c.includes('lembre') || c.includes('lembrar') || c.includes('memória') || c.includes('memoria')) {
+      if (c.includes('lembre') || c.includes('lembrar')) {
+        // Save a memory
+        const memoryContent = c.replace(/.*(?:lembre|lembrar)(?:-se)?\s*(?:de|que)?\s*/i, '').trim();
+        if (memoryContent) {
+          store.addMemory({ category: 'personal', key: 'reminder', value: memoryContent });
+          speakVoice(`Lembrarei disso: ${memoryContent}`);
+          return true;
+        }
+      }
+      setActivePanel('chat');
+      return false; // fall through to LLM for memory recall
+    }
+
+    // Image generation command
+    if (c.includes('gere') || c.includes('gerar imagem') || c.includes('criar imagem') || c.includes('gera uma imagem') || c.includes('cria uma imagem')) {
+      setActivePanel('chat');
+      return false; // let LLM handle image generation via tool
+    }
+
+    // Web search command — instant search
+    if (c.includes('busque') || c.includes('pesquise') || c.includes('procure por') || c.includes('o que é') || c.includes('o que e')) {
+      setActivePanel('search');
+      const query = c.replace(/.*(?:busque|pesquise|procure por)\s*/i, '').trim() || c;
+      if (query) {
+        store.searchWeb(query);
+        speakVoice(`Buscando: ${query}`);
+        return true;
+      }
+    }
+
+    // Send email command
+    if (c.includes('enviar email') || c.includes('enviar e-mail') || c.includes('mande email') || c.includes('mandar email')) {
+      setActivePanel('email');
+      store.loadEmails();
+      return false; // let LLM handle the composition
+    }
+
+    // Not a direct command — fall through to LLM
+    return false;
+  };
+
   // Wake word hook
   const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported, commandText } = useWakeWord({
     autoStart: false,
@@ -803,8 +915,13 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
       const store = useJarvisStore.getState();
       if (cmd.trim()) {
         playMessageSent();
-        store.setVoiceInitiated(true);
-        store.sendMessage(cmd.trim());
+        // Try routing as a direct voice command first
+        const handled = routeVoiceCommand(cmd.trim());
+        if (!handled) {
+          // Fall through to LLM chat
+          store.setVoiceInitiated(true);
+          store.sendMessage(cmd.trim());
+        }
       }
     },
   });
@@ -921,25 +1038,11 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
       if (lastMsg?.role === 'assistant') {
         playSuccess();
 
-        // Auto-speak when voice-initiated
+        // Auto-speak when voice-initiated (speakVoice already preprocesses text)
         if (voiceInitiated && lastMsg.id !== lastSpokenMsgRef.current) {
           lastSpokenMsgRef.current = lastMsg.id;
-          // Strip markdown for more natural speech
-          const speechText = lastMsg.content
-            .replace(/```[\s\S]*?```/g, '') // Remove code blocks
-            .replace(/`[^`]+`/g, '') // Remove inline code
-            .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
-            .replace(/\*([^*]+)\*/g, '$1') // Remove italic
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
-            .replace(/^#{1,6}\s+/gm, '') // Remove headings
-            .replace(/^[-*+]\s+/gm, '') // Remove list markers
-            .replace(/^\d+\.\s+/gm, '') // Remove numbered list markers
-            .replace(/\n{2,}/g, '. ') // Replace double newlines with period
-            .replace(/\n/g, '. ') // Replace newlines with period
-            .trim();
-
-          if (speechText) {
-            speakVoice(speechText);
+          if (lastMsg.content) {
+            speakVoice(lastMsg.content);
           }
           useJarvisStore.getState().setVoiceInitiated(false);
         }

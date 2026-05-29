@@ -42,14 +42,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Valid voices: tongtong, chuichui, xiaochen, jam, kazi, douji, luodo
-    const selectedVoice = voice || 'tongtong'; // tongtong = natural, clear voice (best for JARVIS)
+    // tongtong = most natural, clear voice (best for JARVIS assistant)
+    // Speed slightly below 1.0 for a more deliberate, human feel
+    const selectedVoice = voice || 'tongtong';
+    const speechSpeed = 0.92; // Slightly slower for natural, authoritative delivery
 
     if (chunks.length === 1) {
       // Single chunk - stream directly
       const response = await zai.audio.tts.create({
         input: chunks[0],
         voice: selectedVoice,
-        speed: 1.0,
+        speed: speechSpeed,
       });
 
       const arrayBuffer = await response.arrayBuffer();
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       const response = await zai.audio.tts.create({
         input: chunk,
         voice: selectedVoice,
-        speed: 1.0,
+        speed: speechSpeed,
       });
 
       const arrayBuffer = await response.arrayBuffer();
