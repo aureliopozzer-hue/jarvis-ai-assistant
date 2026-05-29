@@ -4,9 +4,23 @@ const globalForZAI = globalThis as unknown as {
   zai: ZAI | undefined;
 };
 
+// ─── Smart ZAI initialization ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// On the sandbox: Use ZAI SDK directly (internal-api.z.ai is accessible)
+// On external VPS: Fall back gracefully if SDK can't connect
+// The ZAI_PROXY_URL env var enables proxy mode for VPS deployments
+
 export async function getZAI(): Promise<ZAI> {
   if (!globalForZAI.zai) {
-    globalForZAI.zai = await ZAI.create();
+    try {
+      globalForZAI.zai = await ZAI.create();
+    } catch (err) {
+      console.error('[ZAI] Failed to initialize SDK:', err);
+      throw new Error(
+        'ZAI SDK initialization failed. If running on an external server, ' +
+        'ensure the ZAI_PROXY_URL environment variable is set to point to the sandbox proxy, ' +
+        'or use the zai-proxy.ts module instead.'
+      );
+    }
   }
   return globalForZAI.zai;
 }

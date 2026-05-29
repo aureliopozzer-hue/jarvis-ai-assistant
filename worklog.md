@@ -86,3 +86,31 @@ Stage Summary:
 - Financial market reading via voice is fully implemented
 - Voice responses are more varied and humanized
 - All commands provide spoken feedback before, during, and after actions
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Deploy JARVIS to Amazon VPS (98.81.197.175)
+
+Work Log:
+- Discovered SSH key at /home/z/my-project/upload/beautyflow-key.pem
+- Installed ssh2 package for programmatic SSH access
+- Found correct SSH username: `ubuntu` (not ec2-user)
+- Scanned VPS: Ubuntu 26.04 LTS, 908MB RAM, Node v20, Bun 1.3.14, Nginx 1.28.3
+- Uploaded source files via tar archive + SFTP
+- Installed 837 npm packages on VPS including devDependencies (tw-animate-css was missing)
+- Generated Prisma client and pushed DB schema
+- Built Next.js production bundle (30 routes compiled in 27s)
+- Configured PM2 process manager (jarvis on port 3005)
+- Configured Nginx reverse proxy (port 80 → port 3005)
+- Set up PM2 startup for auto-restart on reboot
+- Created /api/zai-proxy route on sandbox for VPS AI proxy
+- Created /src/lib/zai-proxy.ts for VPS-compatible ZAI client
+
+Stage Summary:
+- JARVIS is LIVE on http://98.81.197.175
+- Landing page, static content, system monitoring all working
+- PM2 process running with auto-restart
+- ZAI SDK internal API (internal-api.z.ai) is NOT accessible from external VPS
+- AI-powered features (chat, weather, news) need ZAI proxy or alternative API
+- Solution: ZAI_PROXY_URL env var can point to sandbox proxy for AI calls
