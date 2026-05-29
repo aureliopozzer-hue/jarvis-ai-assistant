@@ -824,6 +824,12 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
     (panel: string) => `Redirecionando para ${panel}.`,
     (panel: string) => `Claro, senhor. Abrindo ${panel}.`,
     (panel: string) => `${panel} à sua frente.`,
+    (panel: string) => `Imediatamente, senhor. ${panel} em tela.`,
+    (panel: string) => `Pois não. Carregando ${panel}.`,
+    (panel: string) => `Com certeza. ${panel} à disposição.`,
+    (panel: string) => `Perfeito. Direto para ${panel}.`,
+    (panel: string) => `Às ordens, senhor. Abrindo ${panel}.`,
+    (panel: string) => `Já está em ${panel}. Mais alguma coisa?`,
   ];
   const confirmIdxRef = useRef(0);
   const getConfirmPhrase = (panel: string): string => {
@@ -955,6 +961,19 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
         'bitcoin': 'BTC-USD', 'btc': 'BTC-USD',
         'ethereum': 'ETH-USD', 'ether': 'ETH-USD',
         'ibovespa': '^BVSP', 'bvsp': '^BVSP',
+        'petrobras': 'PETR4.SA', 'petr4': 'PETR4.SA', 'petr': 'PETR4.SA',
+        'vale': 'VALE3.SA', 'vale3': 'VALE3.SA',
+        'itaú': 'ITUB', 'itau': 'ITUB', 'itub4': 'ITUB',
+        'bradesco': 'BBD', 'bbdc4': 'BBD',
+        'apple': 'AAPL', 'aapl': 'AAPL',
+        'microsoft': 'MSFT', 'msft': 'MSFT',
+        'tesla': 'TSLA', 'tsla': 'TSLA',
+        'nvidia': 'NVDA', 'nvda': 'NVDA',
+        'amazon': 'AMZN', 'amzn': 'AMZN',
+        'google': 'GOOGL', 'googl': 'GOOGL',
+        's&p': '^GSPC', 'sp500': '^GSPC', 'sp 500': '^GSPC',
+        'nasdaq': '^IXIC',
+        'dow jones': '^DJI', 'dow': '^DJI',
       };
       let ticker = '';
       for (const [name, t] of Object.entries(tickerMap)) {
@@ -966,14 +985,16 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
         ticker = tickerMatch ? tickerMatch[1].toUpperCase() : '';
       }
       if (ticker) {
+        speakVoice('Consultando a cotação, senhor. Um momento.');
         store.loadFinanceQuotes([ticker]).then(() => {
           const quotes = useJarvisStore.getState().financeQuotes;
           const quote = quotes.find(q => q.ticker === ticker);
           if (quote) {
             const direction = quote.change >= 0 ? 'alta' : 'baixa';
-            speakVoice(`${quote.name}: ${quote.currency === 'BRL' ? 'R$' : quote.currency} ${quote.price.toFixed(2)}. ${direction} de ${Math.abs(quote.changePercent).toFixed(2)} por cento.`);
+            const currencyPrefix = quote.currency === 'BRL' ? 'R$' : quote.currency === 'USD' ? 'dólares' : quote.currency;
+            speakVoice(`${quote.name}: ${currencyPrefix} ${quote.price.toFixed(2)}. Em ${direction} de ${Math.abs(quote.changePercent).toFixed(2)} por cento. Variação de ${quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)}.`);
           } else {
-            speakVoice('Não consegui obter a cotação no momento, senhor.');
+            speakVoice('Não consegui obter a cotação no momento, senhor. Tente especificar o ticker completo.');
           }
         });
       } else {
@@ -984,6 +1005,100 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
         speakVoice(getConfirmPhrase('Mercado Financeiro'));
       }
       return true;
+    }
+
+    // Finance briefing via voice — "panorama do mercado" / "briefing financeiro" / "como está o mercado"
+    if (/\b(panorama|resumo financeiro|briefing|como est[aá] o mercado|mercado hoje|relat[oó]rio financeiro|vis[aã]o geral do mercado)\b/.test(c)) {
+      setActivePanel('finance');
+      playSuccess();
+      speakVoice('Gerando o panorama financeiro do dia, senhor. Aguarde um momento.');
+      store.loadFinanceBriefing().then(() => {
+        const briefing = useJarvisStore.getState().financeBriefing;
+        if (briefing?.text) {
+          speakVoice(briefing.text);
+        } else {
+          speakVoice('Não consegui gerar o panorama financeiro no momento, senhor. Tente novamente em alguns instantes.');
+        }
+      });
+      return true;
+    }
+
+    // Read emails via voice — "ler emails" / "ver e-mails" / "caixa de entrada"
+    if (/\b(ler email|ler e-mail|ler emails|ver email|ver e-mail|caixa de entrada|mensagens novas|quantos emails)\b/.test(c)) {
+      setActivePanel('email');
+      playSuccess();
+      speakVoice('Consultando sua caixa de entrada, senhor.');
+      store.loadEmails().then(() => {
+        const emails = useJarvisStore.getState().emails;
+        const unread = emails.filter(e => !e.isRead).length;
+        if (unread > 0) {
+          speakVoice(`Você tem ${unread} e-mail${unread > 1 ? 's' : ''} não lido${unread > 1 ? 's' : ''}. O mais recente é de: ${emails[0]?.from}, assunto: ${emails[0]?.subject}.`);
+        } else {
+          speakVoice('Sua caixa de entrada está em dia, senhor. Nenhum e-mail não lido.');
+        }
+      });
+      return true;
+    }
+
+    // Check calendar via voice — "meus compromissos" / "agenda de hoje" / "o que tenho hoje"
+    if (/\b(compromisso|agenda de hoje|o que tenho|meus eventos|reuni[oõ]es de hoje|calend[aá]rio de hoje|pr[oó]ximo evento)\b/.test(c)) {
+      setActivePanel('calendar');
+      playSuccess();
+      speakVoice('Consultando sua agenda, senhor.');
+      store.loadCalendarEvents().then(() => {
+        const events = useJarvisStore.getState().calendarEvents;
+        if (events.length > 0) {
+          const today = new Date();
+          const todayEvents = events.filter(e => {
+            const start = new Date(e.startTime);
+            return start.toDateString() === today.toDateString();
+          });
+          if (todayEvents.length > 0) {
+            const eventList = todayEvents.slice(0, 3).map((e, i) => `${i + 1}: ${e.title}, às ${new Date(e.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`).join('. ');
+            speakVoice(`Você tem ${todayEvents.length} compromisso${todayEvents.length > 1 ? 's' : ''} hoje: ${eventList}.`);
+          } else {
+            speakVoice('Nenhum compromisso agendado para hoje, senhor.');
+          }
+        } else {
+          speakVoice('Sua agenda está vazia, senhor.');
+        }
+      });
+      return true;
+    }
+
+    // News via voice — "últimas notícias" / "o que está acontecendo" / "notícias de hoje"
+    if (/\b([uú]ltimas not[ií]cias|not[ií]cias de hoje|o que est[aá] acontecendo|manchetes|jornal|not[ií]cias do dia)\b/.test(c)) {
+      setActivePanel('news');
+      playSuccess();
+      speakVoice('Buscando as últimas notícias, senhor.');
+      store.loadNews().then(() => {
+        const news = useJarvisStore.getState().newsItems;
+        if (news.length > 0) {
+          const top3 = news.slice(0, 3).map((n, i) => `${i + 1}: ${n.title}`).join('. ');
+          speakVoice(`Aqui estão as principais manchetes: ${top3}. Deseja mais detalhes sobre alguma?`);
+        } else {
+          speakVoice('Não consegui obter as notícias no momento, senhor.');
+        }
+      });
+      return true;
+    }
+
+    // Send email command
+    if (/\b(enviar email|enviar e-mail|mande email|mandar email|escrever email|novo email)\b/.test(c)) {
+      setActivePanel('email');
+      store.loadEmails();
+      playSuccess();
+      speakVoice(getConfirmPhrase('E-mail'));
+      return false; // let LLM handle the email details
+    }
+
+    // Post to social media — "postar" / "publicar"
+    if (/\b(postar|publicar|novo post|criar post)\b/.test(c)) {
+      setActivePanel('social');
+      store.loadSocialData();
+      playSuccess();
+      speakVoice(getConfirmPhrase('Redes Sociais'));
+      return false; // let LLM handle post content
     }
 
     // ── Navigation commands — instantly switch panels ──────────────────
@@ -1042,21 +1157,13 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
     }
 
     // ── Direct action commands — trigger store functions + navigate ──────
-    // Finance briefing
-    if (c.includes('panorama') || c.includes('resumo financeiro') || c.includes('briefing')) {
-      setActivePanel('finance');
-      store.loadFinanceBriefing();
-      speakVoice('Gerando o panorama financeiro do dia, senhor. Um momento.');
-      return true;
-    }
-
-    // Memory commands
+    // Memory commands — "lembre-se disso" / "memória"
     if (c.includes('lembre') || c.includes('lembrar') || c.includes('memória') || c.includes('memoria')) {
       if (c.includes('lembre') || c.includes('lembrar')) {
         const memoryContent = c.replace(/.*(?:lembre|lembrar)(?:-se)?\s*(?:de|que)?\s*/i, '').trim();
         if (memoryContent) {
           store.addMemory({ category: 'personal', key: 'reminder', value: memoryContent });
-          speakVoice(`Lembrarei disso: ${memoryContent}`);
+          speakVoice(`Lembrarei disso, senhor: ${memoryContent}`);
           return true;
         }
       }
@@ -1070,16 +1177,9 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
       const query = c.replace(/.*(?:busque|pesquise|procure por)\s*/i, '').trim() || c;
       if (query) {
         store.searchWeb(query);
-        speakVoice(`Buscando: ${query}`);
+        speakVoice(`Buscando por: ${query}. Um momento.`);
         return true;
       }
-    }
-
-    // Send email command
-    if (c.includes('enviar email') || c.includes('enviar e-mail') || c.includes('mande email') || c.includes('mandar email')) {
-      setActivePanel('email');
-      store.loadEmails();
-      return false;
     }
 
     // Not a direct command — fall through to LLM

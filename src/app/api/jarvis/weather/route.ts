@@ -73,19 +73,33 @@ async function setCachedWeather(city: string, data: WeatherData): Promise<void> 
   }
 }
 
+// ─── Helper: perform web search via ZAI SDK ──────────────────────────────
+async function webSearch(query: string): Promise<string> {
+  try {
+    const zai = await getZAI();
+    const searchResults = await zai.functions.invoke('web_search', {
+      query,
+      num: 10,
+    });
+
+    if (Array.isArray(searchResults)) {
+      return searchResults
+        .map((r: { name?: string; snippet?: string; url?: string }) => `${r.name || ''}: ${r.snippet || ''}`)
+        .join('\n');
+    }
+    return JSON.stringify(searchResults);
+  } catch (err) {
+    console.error('[JARVIS WEATHER] Web search failed:', err);
+    return '';
+  }
+}
+
 // ─── Helper: fetch weather via ZAI ────────────────────────────────────────
 async function fetchCurrentWeather(city: string): Promise<WeatherData> {
-  const zai = await getZAI();
-
   // Use web search to get real weather data
-  const searchResult = await zai.web.search.create({
-    query: `current weather ${city} Brazil today temperature humidity wind`,
-  });
+  const searchContext = await webSearch(`current weather ${city} Brazil today temperature humidity wind`);
 
-  // Extract search snippets as context
-  const searchContext = Array.isArray(searchResult)
-    ? searchResult.map((r: { snippet?: string; title?: string }) => `${r.title}: ${r.snippet}`).join('\n')
-    : JSON.stringify(searchResult);
+  const zai = await getZAI();
 
   // Use chat completion with search context to format weather data
   const completion = await zai.chat.completions.create({
@@ -113,7 +127,9 @@ Return ONLY the JSON object, no other text.`,
       },
       {
         role: 'user',
-        content: `Extract current weather data for ${city} from these search results:\n\n${searchContext}`,
+        content: searchContext
+          ? `Extract current weather data for ${city} from these search results:\n\n${searchContext}`
+          : `Provide current estimated weather data for ${city}, Brazil. Use typical values for the current season.`,
       },
     ],
     thinking: { type: 'disabled' },
@@ -161,15 +177,9 @@ Return ONLY the JSON object, no other text.`,
 
 // ─── Helper: fetch forecast via ZAI ───────────────────────────────────────
 async function fetchForecast(city: string): Promise<ForecastDay[]> {
+  const searchContext = await webSearch(`5 day weather forecast ${city} Brazil`);
+
   const zai = await getZAI();
-
-  const searchResult = await zai.web.search.create({
-    query: `5 day weather forecast ${city} Brazil`,
-  });
-
-  const searchContext = Array.isArray(searchResult)
-    ? searchResult.map((r: { snippet?: string; title?: string }) => `${r.title}: ${r.snippet}`).join('\n')
-    : JSON.stringify(searchResult);
 
   const completion = await zai.chat.completions.create({
     messages: [
@@ -193,7 +203,9 @@ Return an array of 5 days. Return ONLY the JSON array, no other text.`,
       },
       {
         role: 'user',
-        content: `Extract 5-day forecast for ${city} from these search results:\n\n${searchContext}`,
+        content: searchContext
+          ? `Extract 5-day forecast for ${city} from these search results:\n\n${searchContext}`
+          : `Provide a reasonable 5-day weather forecast for ${city}, Brazil based on typical seasonal patterns.`,
       },
     ],
     thinking: { type: 'disabled' },
@@ -218,15 +230,15 @@ Return an array of 5 days. Return ONLY the JSON array, no other text.`,
   return Array.from({ length: 5 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() + i + 1);
-    const condIdx = Math.floor(Math.random() * conditions.length);
+    const condIdx = i % conditions.length;
     return {
       date: date.toISOString().split('T')[0],
       dayOfWeek: days[date.getDay()],
-      high: 28 + Math.floor(Math.random() * 6),
-      low: 18 + Math.floor(Math.random() * 5),
+      high: 28 + (i % 4),
+      low: 18 + (i % 3),
       condition: conditions[condIdx],
       conditionIcon: icons[condIdx],
-      precipitation: Math.floor(Math.random() * 60),
+      precipitation: (i * 10) % 60,
     };
   });
 }

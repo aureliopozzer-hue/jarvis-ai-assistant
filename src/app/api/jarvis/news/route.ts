@@ -24,60 +24,68 @@ interface NewsItem {
   imageUrl?: string;
 }
 
+// ─── Helper: perform web search via ZAI SDK ──────────────────────────────
+async function webSearch(query: string, num = 15): Promise<Array<{ name?: string; snippet?: string; url?: string; host_name?: string; date?: string }>> {
+  try {
+    const zai = await getZAI();
+    const searchResults = await zai.functions.invoke('web_search', {
+      query,
+      num,
+    });
+
+    if (Array.isArray(searchResults)) {
+      return searchResults.map((r: Record<string, unknown>) => ({
+        name: String(r.name || ''),
+        snippet: String(r.snippet || ''),
+        url: String(r.url || ''),
+        host_name: String(r.host_name || ''),
+        date: String(r.date || ''),
+      }));
+    }
+    return [];
+  } catch (err) {
+    console.error('[JARVIS NEWS] Web search failed:', err);
+    return [];
+  }
+}
+
 // ─── Helper: fetch news via ZAI web search ────────────────────────────────
 async function fetchNewsViaSearch(query: string, category?: string): Promise<NewsItem[]> {
-  const zai = await getZAI();
-
   const searchQuery = category
     ? `${query} ${category} news Brazil Brasil`
     : `${query} Brazil Brasil`;
 
-  const searchResult = await zai.web.search.create({
-    query: searchQuery,
-  });
+  const results = await webSearch(searchQuery);
 
-  // Process search results into news items
-  const results = Array.isArray(searchResult)
-    ? searchResult
-    : [];
-
-  return results.slice(0, 15).map((item: { title?: string; snippet?: string; url?: string; source?: string }, index: number) => ({
+  return results.slice(0, 15).map((item, index) => ({
     id: `news-${Date.now()}-${index}`,
-    title: item.title || 'Sem título',
+    title: item.name || 'Sem título',
     snippet: item.snippet || '',
-    source: item.source || 'Desconhecido',
+    source: item.host_name || 'Desconhecido',
     url: item.url || '#',
     category: category || 'general',
-    publishedAt: new Date().toISOString(),
+    publishedAt: item.date || new Date().toISOString(),
   }));
 }
 
 // ─── Helper: fetch headlines via ZAI ──────────────────────────────────────
 async function fetchHeadlines(): Promise<NewsItem[]> {
-  const zai = await getZAI();
+  const results = await webSearch('top news headlines Brazil Brasil today 2025', 15);
 
-  // Search for top headlines in Brazil
-  const searchResult = await zai.web.search.create({
-    query: 'top news headlines Brazil Brasil today 2025',
-  });
-
-  const results = Array.isArray(searchResult)
-    ? searchResult
-    : [];
-
-  const headlines = results.slice(0, 15).map((item: { title?: string; snippet?: string; url?: string; source?: string }, index: number) => ({
+  const headlines: NewsItem[] = results.map((item, index) => ({
     id: `headline-${Date.now()}-${index}`,
-    title: item.title || 'Sem título',
+    title: item.name || 'Sem título',
     snippet: item.snippet || '',
-    source: item.source || 'Desconhecido',
+    source: item.host_name || 'Desconhecido',
     url: item.url || '#',
     category: 'general',
-    publishedAt: new Date().toISOString(),
+    publishedAt: item.date || new Date().toISOString(),
   }));
 
   // Use AI to enhance with categorization
   if (headlines.length > 0) {
     try {
+      const zai = await getZAI();
       const completion = await zai.chat.completions.create({
         messages: [
           {

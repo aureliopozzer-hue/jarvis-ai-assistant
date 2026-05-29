@@ -64,16 +64,40 @@ function FloatingHudCard({
 
 // ─── Particle Field ───────────────────────────────────────────────────
 
+// Pre-computed particle data to avoid Math.random() hydration mismatch
+const AMBIENT_PARTICLES = [
+  { left: 5.2, size: 1.5, duration: 22, delay: 0.5, opacity: 0.25 },
+  { left: 14.8, size: 2.1, duration: 28, delay: 3.2, opacity: 0.18 },
+  { left: 23.5, size: 1.2, duration: 17, delay: 7.8, opacity: 0.35 },
+  { left: 31.9, size: 2.8, duration: 35, delay: 1.1, opacity: 0.22 },
+  { left: 42.7, size: 1.7, duration: 20, delay: 9.5, opacity: 0.30 },
+  { left: 51.3, size: 2.4, duration: 32, delay: 4.7, opacity: 0.19 },
+  { left: 60.6, size: 1.3, duration: 19, delay: 12.3, opacity: 0.38 },
+  { left: 68.2, size: 2.6, duration: 26, delay: 6.1, opacity: 0.21 },
+  { left: 77.9, size: 1.9, duration: 38, delay: 2.4, opacity: 0.27 },
+  { left: 85.4, size: 1.1, duration: 23, delay: 10.8, opacity: 0.33 },
+  { left: 92.1, size: 2.3, duration: 30, delay: 8.3, opacity: 0.17 },
+  { left: 8.6, size: 1.6, duration: 25, delay: 14.2, opacity: 0.29 },
+  { left: 19.3, size: 2.5, duration: 33, delay: 5.6, opacity: 0.24 },
+  { left: 37.4, size: 1.4, duration: 21, delay: 11.7, opacity: 0.36 },
+  { left: 48.8, size: 2.0, duration: 29, delay: 0.9, opacity: 0.20 },
+  { left: 55.2, size: 1.8, duration: 27, delay: 13.4, opacity: 0.32 },
+  { left: 64.7, size: 2.2, duration: 36, delay: 3.8, opacity: 0.26 },
+  { left: 73.5, size: 1.0, duration: 18, delay: 7.2, opacity: 0.40 },
+  { left: 81.8, size: 2.7, duration: 31, delay: 9.9, opacity: 0.23 },
+  { left: 96.3, size: 1.5, duration: 24, delay: 1.5, opacity: 0.31 },
+];
+
 function ParticleField() {
   const particles = useMemo(
     () =>
-      Array.from({ length: 20 }).map((_, i) => ({
+      AMBIENT_PARTICLES.map((p, i) => ({
         id: i,
-        left: `${Math.random() * 100}%`,
-        size: 1 + Math.random() * 2,
-        duration: 15 + Math.random() * 25,
-        delay: Math.random() * 15,
-        opacity: 0.15 + Math.random() * 0.3,
+        left: `${p.left}%`,
+        size: p.size,
+        duration: p.duration,
+        delay: p.delay,
+        opacity: p.opacity,
       })),
     []
   );
