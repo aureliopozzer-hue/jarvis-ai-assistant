@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -11,7 +11,6 @@ import {
   Zap,
   Cpu,
   Shield,
-  X,
   Trash2,
   Check,
   Mail,
@@ -21,6 +20,30 @@ import {
   FolderOpen,
   CreditCard,
   BarChart3,
+  Bot,
+  Image,
+  Globe,
+  FileText,
+  Brain,
+  AlertTriangle,
+  Mic,
+  Cloud,
+  RefreshCw,
+  ListTodo,
+  Newspaper,
+  Home as HomeIcon,
+  Code,
+  ChevronDown,
+  Star,
+  Quote,
+  Users,
+  Clock,
+  MessageCircle,
+  Sparkles,
+  ArrowRight,
+  CheckCircle2,
+  Crown,
+  Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,12 +64,595 @@ import { JarvisCalendar } from '@/components/jarvis/jarvis-calendar';
 import { JarvisFiles } from '@/components/jarvis/jarvis-files';
 import { JarvisStripe } from '@/components/jarvis/jarvis-stripe';
 import { JarvisFinance } from '@/components/jarvis/jarvis-finance';
+import { JarvisWeather } from '@/components/jarvis/jarvis-weather';
+import { JarvisAutomation } from '@/components/jarvis/jarvis-automation';
+import { JarvisTasks } from '@/components/jarvis/jarvis-tasks';
+import { JarvisNews } from '@/components/jarvis/jarvis-news';
 import { useJarvisStore, type Notification } from '@/lib/jarvis-store';
 import { useWakeWord } from '@/hooks/use-wake-word';
 import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
 import { useProactive } from '@/hooks/use-proactive';
 import { useSystemMonitor } from '@/hooks/use-system-monitor';
 import { useSoundEffects } from '@/hooks/use-sound-effects';
+
+// ─── Landing Page Data ───────────────────────────────────────────────────
+
+const features = [
+  { icon: Bot, title: 'Chat Inteligente', desc: 'Conversação natural com memória de longo prazo' },
+  { icon: Eye, title: 'Visão Computacional', desc: 'Análise e compreensão de imagens' },
+  { icon: Search, title: 'Busca na Web', desc: 'Pesquisa em tempo real na internet' },
+  { icon: Globe, title: 'Leitura de Páginas', desc: 'Extração de conteúdo de URLs' },
+  { icon: Image, title: 'Geração de Imagens', desc: 'Criação de imagens com IA' },
+  { icon: BarChart3, title: 'Mercado Financeiro', desc: 'Panorama diário, cotações, alertas, watchlist' },
+  { icon: Mail, title: 'Gerenciamento de E-mail', desc: 'Leitura e envio de e-mails' },
+  { icon: Share2, title: 'Redes Sociais', desc: 'Monitoramento e postagem automática' },
+  { icon: Target, title: 'Campanhas de Marketing', desc: 'Criação e análise de campanhas' },
+  { icon: Calendar, title: 'Calendário', desc: 'Agenda e eventos com lembretes' },
+  { icon: FolderOpen, title: 'Gerenciamento de Arquivos', desc: 'Organização e busca de arquivos' },
+  { icon: Brain, title: 'Memória de Longo Prazo', desc: 'Lembra de tudo sobre você' },
+  { icon: AlertTriangle, title: 'Alertas Proativos', desc: 'Notificações inteligentes' },
+  { icon: Mic, title: 'Comando de Voz', desc: 'Controle por voz com "Hey Jarvis"' },
+  { icon: CreditCard, title: 'Pagamentos Stripe', desc: 'Cobranças e assinaturas' },
+  { icon: Cloud, title: 'Previsão do Tempo', desc: 'Clima e forecast em tempo real' },
+  { icon: RefreshCw, title: 'Automações', desc: 'Rotinas e workflows automatizados' },
+  { icon: ListTodo, title: 'Gestão de Tarefas', desc: 'Projetos e listas de tarefas' },
+  { icon: Newspaper, title: 'Notícias', desc: 'Agregador de notícias personalizado' },
+  { icon: HomeIcon, title: 'Casa Inteligente', desc: 'Controle de dispositivos IoT' },
+  { icon: Code, title: 'Assistente de Código', desc: 'Escrita, revisão e debug' },
+  { icon: FileText, title: 'Geração de Documentos', desc: 'Contratos, relatórios, propostas' },
+];
+
+const testimonials = [
+  {
+    name: 'Ricardo Santos',
+    role: 'CEO, TechStart',
+    quote: 'O JARVIS transformou completamente minha produtividade. É como ter um assistente executivo que nunca dorme e sempre entrega resultados.',
+    avatar: 'RS',
+  },
+  {
+    name: 'Ana Oliveira',
+    role: 'Diretora de Marketing, AgênciaX',
+    quote: 'Gerenciar campanhas e redes sociais nunca foi tão fácil. O JARVIS automatiza tudo e ainda me dá insights valiosos sobre performance.',
+    avatar: 'AO',
+  },
+  {
+    name: 'Carlos Mendes',
+    role: 'Investidor Independente',
+    quote: 'Os alertas de mercado e o panorama financeiro diário me salvaram várias vezes. O JARVIS é indispensável para quem investe.',
+    avatar: 'CM',
+  },
+];
+
+const stats = [
+  { label: 'Usuários', value: '10,000+', icon: Users },
+  { label: 'Uptime', value: '99.9%', icon: Clock },
+  { label: 'Mensagens', value: '50M+', icon: MessageCircle },
+  { label: 'Avaliação', value: '4.9/5', icon: Star },
+];
+
+const pricingFeatures = [
+  'Chat Inteligente com Memória',
+  'Visão Computacional',
+  'Busca na Web em Tempo Real',
+  'Geração de Imagens com IA',
+  'Mercado Financeiro Completo',
+  'Gerenciamento de E-mail',
+  'Redes Sociais & Marketing',
+  'Calendário & Lembretes',
+  'Comando de Voz',
+  'Automações & Workflows',
+  'Assistente de Código',
+  'Geração de Documentos',
+  'Alertas Proativos',
+  'Casa Inteligente (IoT)',
+  'Suporte Prioritário 24/7',
+];
+
+// ─── Arc Reactor Component ───────────────────────────────────────────────
+
+function ArcReactor({ size = 200 }: { size?: number }) {
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      {/* Outer ring */}
+      <motion.div
+        className="absolute inset-0 rounded-full border-2 border-jarvis-cyan/20"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+        style={{
+          background: 'radial-gradient(circle, rgba(0,212,255,0.05) 0%, transparent 70%)',
+        }}
+      >
+        {/* Outer segments */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-0"
+            style={{
+              width: 2,
+              height: 12,
+              background: 'rgba(0,212,255,0.5)',
+              transform: `rotate(${i * 45}deg)`,
+              transformOrigin: `50% ${size / 2}px`,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Middle ring */}
+      <motion.div
+        className="absolute rounded-full border border-jarvis-cyan/30"
+        style={{ inset: size * 0.15 }}
+        animate={{ rotate: -360 }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+      >
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute top-0 left-1/2 -translate-x-1/2"
+            style={{
+              width: 3,
+              height: 8,
+              background: 'rgba(0,212,255,0.6)',
+              borderRadius: 2,
+              transform: `rotate(${i * 30}deg)`,
+              transformOrigin: `50% ${(size * 0.7) / 2}px`,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Inner ring */}
+      <motion.div
+        className="absolute rounded-full border-2 border-jarvis-cyan/40"
+        style={{ inset: size * 0.3 }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+      >
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute top-0 left-1/2 -translate-x-1/2"
+            style={{
+              width: 4,
+              height: 10,
+              background: 'rgba(0,212,255,0.7)',
+              borderRadius: 2,
+              transform: `rotate(${i * 60}deg)`,
+              transformOrigin: `50% ${(size * 0.4) / 2}px`,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Core */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          inset: size * 0.38,
+          background: 'radial-gradient(circle, rgba(0,212,255,0.4) 0%, rgba(0,212,255,0.1) 50%, transparent 70%)',
+          boxShadow: '0 0 30px rgba(0,212,255,0.3), 0 0 60px rgba(0,212,255,0.1)',
+        }}
+      >
+        <motion.div
+          className="absolute inset-2 rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(0,212,255,0.6) 0%, rgba(0,212,255,0.2) 60%, transparent 80%)',
+          }}
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Floating Particles ──────────────────────────────────────────────────
+
+function FloatingParticles() {
+  return (
+    <div className="jarvis-particles">
+      {[...Array(20)].map((_, i) => (
+        <div
+          key={i}
+          className="jarvis-particle"
+          style={{
+            left: `${Math.random() * 100}%`,
+            animationDuration: `${8 + Math.random() * 12}s`,
+            animationDelay: `${Math.random() * 10}s`,
+            opacity: 0.2 + Math.random() * 0.4,
+            width: 1 + Math.random() * 2,
+            height: 1 + Math.random() * 2,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Landing Page Sections ───────────────────────────────────────────────
+
+function LandingPage({ onEnterDashboard }: { onEnterDashboard: () => void }) {
+  const featuresRef = useRef<HTMLDivElement>(null);
+
+  const scrollToFeatures = () => {
+    featuresRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  return (
+    <div className="jarvis-grid-bg jarvis-hex-grid min-h-screen flex flex-col bg-jarvis-dark text-foreground">
+      <FloatingParticles />
+
+      {/* ─── Navigation ────────────────────────────────────────────── */}
+      <motion.nav
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="sticky top-0 z-50 border-b border-jarvis-border/50 bg-jarvis-dark/80 backdrop-blur-xl"
+      >
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-8 w-8 items-center justify-center">
+              <div className="jarvis-mini-reactor absolute inset-0 rounded-full border border-jarvis-cyan/50" />
+              <div className="h-2 w-2 rounded-full bg-jarvis-cyan jarvis-pulse" />
+            </div>
+            <span className="text-lg font-bold tracking-wider text-jarvis-cyan jarvis-glow-text">
+              J.A.R.V.I.S.
+            </span>
+          </div>
+
+          <div className="hidden items-center gap-6 md:flex">
+            <button onClick={scrollToFeatures} className="text-sm text-jarvis-cyan/60 transition-colors hover:text-jarvis-cyan">
+              Funcionalidades
+            </button>
+            <a href="#pricing" className="text-sm text-jarvis-cyan/60 transition-colors hover:text-jarvis-cyan">
+              Preços
+            </a>
+            <a href="#testimonials" className="text-sm text-jarvis-cyan/60 transition-colors hover:text-jarvis-cyan">
+              Depoimentos
+            </a>
+          </div>
+
+          <Button
+            onClick={onEnterDashboard}
+            className="bg-jarvis-cyan/10 text-jarvis-cyan border border-jarvis-cyan/30 hover:bg-jarvis-cyan/20 hover:border-jarvis-cyan/50 transition-all"
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Acessar JARVIS
+          </Button>
+        </div>
+      </motion.nav>
+
+      {/* ─── Hero Section ──────────────────────────────────────────── */}
+      <section className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden px-4 py-16 sm:py-24">
+        {/* Background image overlay */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10"
+          style={{ backgroundImage: 'url(/jarvis-hero.png)' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-jarvis-dark/50 via-transparent to-jarvis-dark" />
+
+        {/* Arc Reactor */}
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.2, ease: 'easeOut' }}
+          className="relative z-10 mb-8 sm:mb-12"
+        >
+          <ArcReactor size={160} />
+        </motion.div>
+
+        {/* Title */}
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="relative z-10 text-center"
+        >
+          <h1 className="jarvis-glow-text text-5xl font-black tracking-[0.15em] text-jarvis-cyan sm:text-6xl md:text-7xl lg:text-8xl">
+            J.A.R.V.I.S.
+          </h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.8 }}
+            className="mt-4 text-lg font-medium text-jarvis-cyan/70 sm:text-xl md:text-2xl"
+          >
+            Seu Assistente de Inteligência Artificial Autônomo
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 1.1 }}
+            className="mx-auto mt-3 max-w-xl text-sm text-jarvis-cyan/40 sm:text-base"
+          >
+            Inspirado no JARVIS de Tony Stark. Um assistente que conversa, enxerga, busca,
+            cria e automatiza — tudo em um só lugar.
+          </motion.p>
+        </motion.div>
+
+        {/* CTA Buttons */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, delay: 1.4 }}
+          className="relative z-10 mt-10 flex flex-col items-center gap-4 sm:flex-row"
+        >
+          <Button
+            onClick={onEnterDashboard}
+            size="lg"
+            className="bg-jarvis-cyan text-jarvis-dark hover:bg-jarvis-cyan/90 font-bold text-base px-8 py-6 jarvis-glow-strong transition-all"
+          >
+            <Sparkles className="mr-2 h-5 w-5" />
+            Começar Agora
+          </Button>
+          <Button
+            onClick={scrollToFeatures}
+            size="lg"
+            variant="outline"
+            className="border-jarvis-cyan/30 bg-jarvis-cyan/5 text-jarvis-cyan hover:bg-jarvis-cyan/10 hover:border-jarvis-cyan/50 px-8 py-6 text-base transition-all"
+          >
+            Ver Funcionalidades
+            <ChevronDown className="ml-2 h-5 w-5 animate-bounce" />
+          </Button>
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2 }}
+          className="absolute bottom-8 z-10 flex flex-col items-center gap-2"
+        >
+          <span className="text-[10px] tracking-[0.2em] text-jarvis-cyan/30">SCROLL</span>
+          <div className="h-8 w-[1px] bg-gradient-to-b from-jarvis-cyan/40 to-transparent" />
+        </motion.div>
+      </section>
+
+      {/* ─── Features Section ──────────────────────────────────────── */}
+      <section ref={featuresRef} className="relative z-10 border-t border-jarvis-border/30 bg-jarvis-dark/80 py-20 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <Badge className="mb-4 border-jarvis-cyan/30 bg-jarvis-cyan/10 text-jarvis-cyan">
+              <Cpu className="mr-1 h-3 w-3" />
+              22 MÓDULOS INTEGRADOS
+            </Badge>
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl md:text-5xl">
+              Tudo que você precisa,{' '}
+              <span className="jarvis-glow-text text-jarvis-cyan">em um só lugar</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-jarvis-cyan/50">
+              Do chat inteligente ao controle da sua casa. O JARVIS é o assistente mais completo do mercado.
+            </p>
+          </motion.div>
+
+          <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
+                className="jarvis-panel group relative overflow-hidden p-5 transition-all hover:border-jarvis-cyan/40 hover:shadow-[0_0_20px_rgba(0,212,255,0.1)]"
+              >
+                {/* Shimmer effect */}
+                <div className="jarvis-holo-shimmer-rainbow absolute inset-0 pointer-events-none" />
+                <div className="relative z-10">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-jarvis-cyan/10 text-jarvis-cyan transition-colors group-hover:bg-jarvis-cyan/20">
+                    <feature.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground">{feature.title}</h3>
+                  <p className="mt-1 text-xs text-jarvis-cyan/40 leading-relaxed">{feature.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Pricing Section ───────────────────────────────────────── */}
+      <section id="pricing" className="relative z-10 border-t border-jarvis-border/30 py-20 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <Badge className="mb-4 border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              <Crown className="mr-1 h-3 w-3" />
+              MELHOR CUSTO-BENEFÍCIO
+            </Badge>
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl md:text-5xl">
+              Um plano.{' '}
+              <span className="jarvis-glow-text text-jarvis-cyan">Tudo incluído.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-jarvis-cyan/50">
+              Sem surpresas, sem limites artificiais. Um preço justo por um assistente completo.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="mx-auto mt-16 max-w-lg"
+          >
+            <div className="jarvis-panel jarvis-ambient-glow jarvis-hud-brackets relative overflow-hidden p-8 sm:p-10">
+              <div className="jarvis-holo-shimmer-rainbow absolute inset-0 pointer-events-none" />
+
+              <div className="relative z-10">
+                {/* Plan header */}
+                <div className="text-center">
+                  <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-jarvis-cyan/10 px-3 py-1 text-xs font-medium text-jarvis-cyan">
+                    <Play className="h-3 w-3" />
+                    7 dias grátis
+                  </div>
+                  <h3 className="mt-4 text-2xl font-bold text-foreground">JARVIS Pro</h3>
+                  <div className="mt-4 flex items-baseline justify-center gap-1">
+                    <span className="text-5xl font-black text-jarvis-cyan jarvis-glow-text">R$ 97</span>
+                    <span className="text-jarvis-cyan/50">/mês</span>
+                  </div>
+                  <p className="mt-2 text-sm text-jarvis-cyan/40">Tudo incluído. Sem limites.</p>
+                </div>
+
+                <Separator className="my-6 bg-jarvis-border" />
+
+                {/* Feature list */}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {pricingFeatures.map((f) => (
+                    <div key={f} className="flex items-center gap-3 text-sm text-jarvis-cyan/60">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={onEnterDashboard}
+                  className="mt-8 w-full bg-jarvis-cyan text-jarvis-dark hover:bg-jarvis-cyan/90 font-bold py-6 text-base jarvis-glow-strong transition-all"
+                >
+                  <Zap className="mr-2 h-5 w-5" />
+                  Assinar Agora
+                </Button>
+
+                <p className="mt-3 text-center text-xs text-jarvis-cyan/30">
+                  Cancele quando quiser. Sem fidelidade.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── Testimonials Section ───────────────────────────────────── */}
+      <section id="testimonials" className="relative z-10 border-t border-jarvis-border/30 bg-jarvis-dark/80 py-20 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl md:text-5xl">
+              Quem usa,{' '}
+              <span className="jarvis-glow-text text-jarvis-cyan">recomenda</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-jarvis-cyan/50">
+              Milhares de profissionais já confiam no JARVIS para ser mais produtivos.
+            </p>
+          </motion.div>
+
+          {/* Stats Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4"
+          >
+            {stats.map((stat) => (
+              <div key={stat.label} className="jarvis-panel flex flex-col items-center p-5 text-center">
+                <stat.icon className="mb-2 h-5 w-5 text-jarvis-cyan/60" />
+                <span className="text-2xl font-bold text-jarvis-cyan jarvis-glow-text sm:text-3xl">{stat.value}</span>
+                <span className="mt-1 text-xs text-jarvis-cyan/40">{stat.label}</span>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Testimonial Cards */}
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className="jarvis-panel p-6"
+              >
+                <Quote className="mb-4 h-8 w-8 text-jarvis-cyan/20" />
+                <p className="text-sm leading-relaxed text-jarvis-cyan/60">&ldquo;{t.quote}&rdquo;</p>
+                <Separator className="my-4 bg-jarvis-border" />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-jarvis-cyan/10 text-xs font-bold text-jarvis-cyan">
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                    <p className="text-xs text-jarvis-cyan/40">{t.role}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Final CTA Section ─────────────────────────────────────── */}
+      <section className="relative z-10 border-t border-jarvis-border/30 py-20 sm:py-28">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="mb-8 flex justify-center">
+              <ArcReactor size={100} />
+            </div>
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl md:text-5xl">
+              Pronto para ter seu próprio{' '}
+              <span className="jarvis-glow-text text-jarvis-cyan">JARVIS</span>?
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-jarvis-cyan/50">
+              Comece agora mesmo com 7 dias grátis. Sem compromisso. Cancele quando quiser.
+            </p>
+            <Button
+              onClick={onEnterDashboard}
+              size="lg"
+              className="mt-8 bg-jarvis-cyan text-jarvis-dark hover:bg-jarvis-cyan/90 font-bold px-10 py-6 text-lg jarvis-glow-strong transition-all"
+            >
+              <Zap className="mr-2 h-5 w-5" />
+              Ativar JARVIS Agora
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── Footer ────────────────────────────────────────────────── */}
+      <footer className="relative z-10 mt-auto border-t border-jarvis-border/30 bg-jarvis-dark/90 py-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-6 w-6 items-center justify-center">
+                <div className="jarvis-mini-reactor absolute inset-0 rounded-full border border-jarvis-cyan/50" />
+                <div className="h-1.5 w-1.5 rounded-full bg-jarvis-cyan jarvis-pulse" />
+              </div>
+              <span className="text-sm font-semibold tracking-wider text-jarvis-cyan/60">J.A.R.V.I.S.</span>
+            </div>
+            <p className="text-xs text-jarvis-cyan/30">
+              &copy; {new Date().getFullYear()} JARVIS. Todos os direitos reservados.
+            </p>
+            <p className="text-xs text-jarvis-cyan/30">
+              Powered by <span className="text-jarvis-cyan/50 font-semibold">Z.AI</span>
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
 
 // ─── Right Sidebar - Notifications ───────────────────────────────────
 
@@ -175,9 +781,9 @@ function getGreeting(): string {
   return 'Boa noite';
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────
+// ─── Dashboard Component ─────────────────────────────────────────────────
 
-export default function Home() {
+function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void }) {
   const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig, loadFinanceQuotes, loadFinanceNews, loadFinanceWatchlist, loadFinanceAlerts } = useJarvisStore();
 
   // Sound effects hook
@@ -187,12 +793,10 @@ export default function Home() {
   const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported, commandText } = useWakeWord({
     autoStart: false,
     onWake: () => {
-      // When wake word is detected, play the wake sound and switch to chat panel
       playWakeWord();
       setActivePanel('chat');
     },
     onCommand: (cmd) => {
-      // When a command is captured after the wake word, send it to chat
       const store = useJarvisStore.getState();
       if (cmd.trim()) {
         playMessageSent();
@@ -204,10 +808,10 @@ export default function Home() {
   // Voice hook for greeting
   const { speak: speakVoice } = useJarvisVoice();
 
-  // Proactive hook — auto-starts polling
+  // Proactive hook
   useProactive({ autoStart: true, interval: 30000 });
 
-  // System monitor hook — auto-starts polling
+  // System monitor hook
   const { data: systemData } = useSystemMonitor({ autoStart: true });
 
   // Sync system data to store
@@ -232,24 +836,17 @@ export default function Home() {
     }
   }, [wakeWordActive, wakeWordSupported, startWakeListening, stopWakeListening, setWakeWordState]);
 
-  // When wake word detects "jarvis", auto-switch to chat
-  // Command timeout is handled inside the hook now (5 seconds)
   const wakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (wakeWordState === 'awake') {
       setActivePanel('chat');
-
-      // Clear any existing timer
       if (wakeResetTimerRef.current) {
         clearTimeout(wakeResetTimerRef.current);
       }
-
-      // Reset after 6 seconds (slightly longer than hook's 5s timeout)
       wakeResetTimerRef.current = setTimeout(() => {
         resetWake();
       }, 6000);
     }
-
     return () => {
       if (wakeResetTimerRef.current) {
         clearTimeout(wakeResetTimerRef.current);
@@ -257,16 +854,13 @@ export default function Home() {
     };
   }, [wakeWordState, setActivePanel, resetWake]);
 
-  // Track previous notification count to play sound on new notifications
   const prevNotifCountRef = useRef(0);
 
   // Initial data loading and greeting
   useEffect(() => {
-    // Initial data loading
     loadConversations();
     loadNotifications();
 
-    // Add welcome notification only once per session
     const welcomed = sessionStorage.getItem('jarvis-welcomed');
     if (!welcomed) {
       sessionStorage.setItem('jarvis-welcomed', 'true');
@@ -286,7 +880,6 @@ export default function Home() {
         });
       }, 1000);
 
-      // Initial greeting voice — only once per session
       const greeted = sessionStorage.getItem('jarvis-greeted');
       if (!greeted) {
         sessionStorage.setItem('jarvis-greeted', 'true');
@@ -298,7 +891,6 @@ export default function Home() {
       }
     }
 
-    // Play activation sound on initial load
     const activated = sessionStorage.getItem('jarvis-activated');
     if (!activated) {
       sessionStorage.setItem('jarvis-activated', 'true');
@@ -308,7 +900,7 @@ export default function Home() {
     }
   }, [loadConversations, loadNotifications, speakVoice, playActivation, playSuccess]);
 
-  // Play notification sound when new notifications are added
+  // Play notification sound
   const notifications = useJarvisStore((s) => s.notifications);
   useEffect(() => {
     if (notifications.length > prevNotifCountRef.current && prevNotifCountRef.current > 0) {
@@ -317,7 +909,7 @@ export default function Home() {
     prevNotifCountRef.current = notifications.length;
   }, [notifications.length, playNotification]);
 
-  // Play success sound when JARVIS responds (new assistant message)
+  // Play sound on messages
   const messages = useJarvisStore((s) => s.messages);
   const prevMsgCountRef = useRef(0);
   useEffect(() => {
@@ -337,7 +929,6 @@ export default function Home() {
     const handleBeforeUnload = () => {
       playDeactivation();
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -346,22 +937,18 @@ export default function Home() {
 
   // Handle online/offline events
   useEffect(() => {
-    // Set initial online status after hydration to avoid mismatch
     useJarvisStore.getState().setOnlineStatus(navigator.onLine);
-
     const handleOnline = () => useJarvisStore.getState().setOnlineStatus(true);
     const handleOffline = () => useJarvisStore.getState().setOnlineStatus(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Auto-load data when switching to panels for the first time
+  // Auto-load data when switching panels
   useEffect(() => {
     const loadedPanels = useJarvisStore.getState().loadedPanels;
     if (!loadedPanels.has(activePanel)) {
@@ -375,6 +962,14 @@ export default function Home() {
           loadStripeConfig(); break;
         case 'finance':
           loadFinanceQuotes(); loadFinanceNews(); loadFinanceWatchlist(); loadFinanceAlerts(); break;
+        case 'weather':
+          useJarvisStore.getState().loadWeather('São Paulo'); break;
+        case 'automation':
+          useJarvisStore.getState().loadAutomations(); break;
+        case 'tasks':
+          useJarvisStore.getState().loadTasks(); useJarvisStore.getState().loadProjects(); break;
+        case 'news':
+          useJarvisStore.getState().loadNews(); break;
       }
     }
   }, [activePanel, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig, loadFinanceQuotes, loadFinanceNews, loadFinanceWatchlist, loadFinanceAlerts]);
@@ -403,6 +998,14 @@ export default function Home() {
         return <JarvisStripe />;
       case 'finance':
         return <JarvisFinance />;
+      case 'weather':
+        return <JarvisWeather />;
+      case 'automation':
+        return <JarvisAutomation />;
+      case 'tasks':
+        return <JarvisTasks />;
+      case 'news':
+        return <JarvisNews />;
     }
   };
 
@@ -440,7 +1043,20 @@ export default function Home() {
 
       {/* Top Header */}
       <div className="shrink-0 px-2 pt-2 md:px-3 md:pt-3">
-        <JarvisHeader />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBackToLanding}
+            className="h-8 px-2 text-[10px] text-jarvis-cyan/40 hover:bg-jarvis-cyan/10 hover:text-jarvis-cyan"
+          >
+            <ArrowRight className="mr-1 h-3 w-3 rotate-180" />
+            Voltar
+          </Button>
+          <div className="flex-1">
+            <JarvisHeader />
+          </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -463,8 +1079,12 @@ export default function Home() {
             {activePanel === 'files' && <FolderOpen className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'stripe' && <CreditCard className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'finance' && <BarChart3 className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'weather' && <Cloud className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'automation' && <RefreshCw className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'tasks' && <ListTodo className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'news' && <Newspaper className="h-4 w-4 text-jarvis-cyan/60" />}
             <span className="text-[10px] font-semibold tracking-[0.2em] text-jarvis-cyan/50">
-              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : activePanel === 'dashboard' ? 'PAINEL' : activePanel === 'email' ? 'EMAIL' : activePanel === 'social' ? 'SOCIAL' : activePanel === 'campaigns' ? 'CAMPANHAS' : activePanel === 'calendar' ? 'CALENDÁRIO' : activePanel === 'files' ? 'ARQUIVOS' : activePanel === 'finance' ? 'FINANÇAS' : 'PAGAMENTOS'}
+              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : activePanel === 'dashboard' ? 'PAINEL' : activePanel === 'email' ? 'EMAIL' : activePanel === 'social' ? 'SOCIAL' : activePanel === 'campaigns' ? 'CAMPANHAS' : activePanel === 'calendar' ? 'CALENDÁRIO' : activePanel === 'files' ? 'ARQUIVOS' : activePanel === 'finance' ? 'FINANÇAS' : activePanel === 'weather' ? 'TEMPO' : activePanel === 'automation' ? 'AUTOMAÇÃO' : activePanel === 'tasks' ? 'TAREFAS' : activePanel === 'news' ? 'NOTÍCIAS' : 'PAGAMENTOS'}
             </span>
             {wakeWordState === 'awake' && commandText && (
               <span className="ml-2 text-[10px] text-jarvis-cyan animate-pulse">
@@ -502,5 +1122,38 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────
+
+export default function Home() {
+  const [mode, setMode] = useState<'landing' | 'dashboard'>('landing');
+
+  return (
+    <AnimatePresence mode="wait">
+      {mode === 'landing' ? (
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <LandingPage onEnterDashboard={() => setMode('dashboard')} />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="dashboard"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="h-screen"
+        >
+          <JarvisDashboardView onBackToLanding={() => setMode('landing')} />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

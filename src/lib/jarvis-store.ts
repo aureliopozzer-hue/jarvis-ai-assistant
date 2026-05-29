@@ -36,7 +36,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard' | 'email' | 'social' | 'campaigns' | 'calendar' | 'files' | 'stripe' | 'finance';
+export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard' | 'email' | 'social' | 'campaigns' | 'calendar' | 'files' | 'stripe' | 'finance' | 'weather' | 'automation' | 'tasks' | 'news';
 export type JarvisPersonality = 'professional' | 'friendly' | 'witty';
 export type JarvisLanguage = 'pt-BR' | 'en-US';
 
@@ -200,6 +200,64 @@ export interface FinanceBriefing {
   generatedAt: string;
 }
 
+export interface WeatherData {
+  city: string;
+  temperature: number;
+  feelsLike: number;
+  humidity: number;
+  windSpeed: number;
+  condition: string;
+  icon: string;
+  forecast: Array<{
+    day: string;
+    high: number;
+    low: number;
+    condition: string;
+  }>;
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  trigger: { type: string; config: Record<string, unknown> };
+  actions: Array<{ type: string; config: Record<string, unknown> }>;
+  isActive: boolean;
+  lastRun: string | null;
+  runCount: number;
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'todo' | 'in_progress' | 'done';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  dueDate: string | null;
+  projectId: string | null;
+  projectName?: string;
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  taskCount?: number;
+  createdAt: string;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  snippet: string;
+  category: string;
+  publishedAt: string;
+  imageUrl?: string;
+}
+
 export interface JarvisSettings {
   voiceRate: number;
   voicePitch: number;
@@ -298,6 +356,23 @@ export interface JarvisState {
   isLoadingFinance: boolean;
   financeSearchResults: FinanceQuote[];
   financeSelectedStock: FinanceQuote | null;
+
+  // Weather
+  weatherData: WeatherData | null;
+  isLoadingWeather: boolean;
+
+  // Automation
+  automations: Automation[];
+  isLoadingAutomation: boolean;
+
+  // Tasks
+  tasks: Task[];
+  projects: Project[];
+  isLoadingTasks: boolean;
+
+  // News
+  newsItems: NewsItem[];
+  isLoadingNews: boolean;
 
   // UI
   activePanel: JarvisPanel;
@@ -419,6 +494,29 @@ export interface JarvisActions {
   searchFinanceStocks: (query: string) => Promise<void>;
   selectFinanceStock: (ticker: string) => Promise<void>;
   clearFinanceSearch: () => void;
+
+  // Weather Actions
+  loadWeather: (city: string) => Promise<void>;
+
+  // Automation Actions
+  loadAutomations: () => Promise<void>;
+  createAutomation: (name: string, trigger: Record<string, unknown>, actions: Array<Record<string, unknown>>) => Promise<void>;
+  toggleAutomation: (id: string, active: boolean) => Promise<void>;
+  deleteAutomation: (id: string) => Promise<void>;
+  executeAutomation: (id: string) => Promise<void>;
+
+  // Tasks Actions
+  loadTasks: (filters?: { status?: string; priority?: string; projectId?: string }) => Promise<void>;
+  createTask: (task: { title: string; description?: string; priority?: string; projectId?: string; dueDate?: string }) => Promise<void>;
+  updateTask: (id: string, data: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  loadProjects: () => Promise<void>;
+  createProject: (name: string, color?: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+
+  // News Actions
+  loadNews: (category?: string) => Promise<void>;
+  searchNews: (query: string) => Promise<void>;
 
   // UI Actions
   setActivePanel: (panel: JarvisPanel) => void;
@@ -562,6 +660,23 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   isLoadingFinance: false,
   financeSearchResults: [],
   financeSelectedStock: null,
+
+  // Weather
+  weatherData: null,
+  isLoadingWeather: false,
+
+  // Automation
+  automations: [],
+  isLoadingAutomation: false,
+
+  // Tasks
+  tasks: [],
+  projects: [],
+  isLoadingTasks: false,
+
+  // News
+  newsItems: [],
+  isLoadingNews: false,
 
   // UI
   activePanel: 'chat',
@@ -1413,6 +1528,237 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
 
   clearFinanceSearch: () => {
     set({ financeSearchResults: [], financeSelectedStock: null });
+  },
+
+  // ── Weather Actions ───────────────────────────────────────────────
+
+  loadWeather: async (city: string) => {
+    set({ isLoadingWeather: true });
+    try {
+      const result = await apiFetch<{ weather: WeatherData }>(`/api/jarvis/weather?action=current&city=${encodeURIComponent(city)}`);
+      if (result?.weather) {
+        const w = result.weather;
+        // Map API weather format to store WeatherData format
+        set({
+          weatherData: {
+            city: w.city,
+            temperature: w.temperature,
+            feelsLike: w.feelsLike,
+            humidity: w.humidity,
+            windSpeed: w.windSpeed ?? (w as Record<string, unknown>).wind as number ?? 0,
+            condition: w.condition,
+            icon: w.icon ?? (w as Record<string, unknown>).conditionIcon as string ?? '🌤️',
+            forecast: w.forecast ?? [],
+          },
+        });
+      }
+    } catch {
+      console.error('Failed to load weather');
+    } finally {
+      set({ isLoadingWeather: false });
+    }
+  },
+
+  // ── Automation Actions ────────────────────────────────────────────
+
+  loadAutomations: async () => {
+    set({ isLoadingAutomation: true });
+    try {
+      const result = await apiFetch<{ automations: Automation[] }>('/api/jarvis/automation?action=list');
+      if (result?.automations) {
+        set({ automations: result.automations });
+      }
+    } catch {
+      console.error('Failed to load automations');
+    } finally {
+      set({ isLoadingAutomation: false });
+    }
+  },
+
+  createAutomation: async (name: string, trigger: Record<string, unknown>, actions: Array<Record<string, unknown>>) => {
+    set({ isLoadingAutomation: true });
+    try {
+      const result = await apiFetch<{ automation: Automation }>('/api/jarvis/automation', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name, trigger, actions }),
+      });
+      if (result?.automation) {
+        set((s) => ({ automations: [result.automation, ...s.automations] }));
+      }
+    } catch {
+      console.error('Failed to create automation');
+    } finally {
+      set({ isLoadingAutomation: false });
+    }
+  },
+
+  toggleAutomation: async (id: string, active: boolean) => {
+    // Optimistic update
+    set((s) => ({
+      automations: s.automations.map((a) => a.id === id ? { ...a, isActive: active } : a),
+    }));
+    await apiFetch('/api/jarvis/automation', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'toggle', id, active }),
+    });
+  },
+
+  deleteAutomation: async (id: string) => {
+    // Optimistic delete
+    set((s) => ({
+      automations: s.automations.filter((a) => a.id !== id),
+    }));
+    await apiFetch('/api/jarvis/automation', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', id }),
+    });
+  },
+
+  executeAutomation: async (id: string) => {
+    try {
+      await apiFetch('/api/jarvis/automation', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'execute', id }),
+      });
+      // Reload to get updated lastRun and runCount
+      await get().loadAutomations();
+    } catch {
+      console.error('Failed to execute automation');
+    }
+  },
+
+  // ── Tasks Actions ─────────────────────────────────────────────────
+
+  loadTasks: async (filters?: { status?: string; priority?: string; projectId?: string }) => {
+    set({ isLoadingTasks: true });
+    try {
+      const params = new URLSearchParams();
+      params.set('action', 'list');
+      if (filters?.status) params.set('status', filters.status);
+      if (filters?.priority) params.set('priority', filters.priority);
+      if (filters?.projectId) params.set('project', filters.projectId);
+
+      const result = await apiFetch<{ tasks: Task[] }>(`/api/jarvis/tasks?${params.toString()}`);
+      if (result?.tasks) {
+        set({ tasks: result.tasks });
+      }
+    } catch {
+      console.error('Failed to load tasks');
+    } finally {
+      set({ isLoadingTasks: false });
+    }
+  },
+
+  createTask: async (task: { title: string; description?: string; priority?: string; projectId?: string; dueDate?: string }) => {
+    set({ isLoadingTasks: true });
+    try {
+      const result = await apiFetch<{ task: Task }>('/api/jarvis/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', ...task }),
+      });
+      if (result?.task) {
+        set((s) => ({ tasks: [result.task, ...s.tasks] }));
+      }
+    } catch {
+      console.error('Failed to create task');
+    } finally {
+      set({ isLoadingTasks: false });
+    }
+  },
+
+  updateTask: async (id: string, data: Partial<Task>) => {
+    // Optimistic update
+    set((s) => ({
+      tasks: s.tasks.map((t) => t.id === id ? { ...t, ...data } : t),
+    }));
+    await apiFetch('/api/jarvis/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', id, ...data }),
+    });
+  },
+
+  deleteTask: async (id: string) => {
+    // Optimistic delete
+    set((s) => ({
+      tasks: s.tasks.filter((t) => t.id !== id),
+    }));
+    await apiFetch('/api/jarvis/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', id }),
+    });
+  },
+
+  loadProjects: async () => {
+    try {
+      const result = await apiFetch<{ projects: Project[] }>('/api/jarvis/tasks?action=projects');
+      if (result?.projects) {
+        set({ projects: result.projects });
+      }
+    } catch {
+      console.error('Failed to load projects');
+    }
+  },
+
+  createProject: async (name: string, color?: string) => {
+    try {
+      const result = await apiFetch<{ project: Project }>('/api/jarvis/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create_project', name, color }),
+      });
+      if (result?.project) {
+        set((s) => ({ projects: [...s.projects, result.project] }));
+      }
+    } catch {
+      console.error('Failed to create project');
+    }
+  },
+
+  deleteProject: async (id: string) => {
+    set((s) => ({
+      projects: s.projects.filter((p) => p.id !== id),
+    }));
+    await apiFetch('/api/jarvis/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete_project', id }),
+    });
+  },
+
+  // ── News Actions ──────────────────────────────────────────────────
+
+  loadNews: async (category?: string) => {
+    set({ isLoadingNews: true });
+    try {
+      let result: { news?: NewsItem[]; headlines?: NewsItem[] } | null;
+      if (category) {
+        result = await apiFetch<{ news: NewsItem[] }>(`/api/jarvis/news?action=categories&category=${encodeURIComponent(category)}`);
+        if (result?.news) {
+          set({ newsItems: result.news });
+        }
+      } else {
+        result = await apiFetch<{ headlines: NewsItem[] }>('/api/jarvis/news?action=headlines');
+        if (result?.headlines) {
+          set({ newsItems: result.headlines });
+        }
+      }
+    } catch {
+      console.error('Failed to load news');
+    } finally {
+      set({ isLoadingNews: false });
+    }
+  },
+
+  searchNews: async (query: string) => {
+    set({ isLoadingNews: true });
+    try {
+      const result = await apiFetch<{ news: NewsItem[] }>(`/api/jarvis/news?action=search&q=${encodeURIComponent(query)}`);
+      if (result?.news) {
+        set({ newsItems: result.news });
+      }
+    } catch {
+      console.error('Failed to search news');
+    } finally {
+      set({ isLoadingNews: false });
+    }
   },
 
   // ── UI Actions ──────────────────────────────────────────────────

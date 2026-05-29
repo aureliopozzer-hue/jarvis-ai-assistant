@@ -20,6 +20,10 @@ import {
   FolderOpen,
   CreditCard,
   BarChart3,
+  Cloud,
+  RefreshCw,
+  ListTodo,
+  Newspaper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,6 +41,10 @@ const navItems: { panel: JarvisPanel; label: string; icon: React.ElementType }[]
   { panel: 'vision', label: 'Visão', icon: Eye },
   { panel: 'search', label: 'Busca', icon: Search },
   { panel: 'finance', label: 'Finanças', icon: BarChart3 },
+  { panel: 'weather', label: 'Tempo', icon: Cloud },
+  { panel: 'news', label: 'Notícias', icon: Newspaper },
+  { panel: 'tasks', label: 'Tarefas', icon: ListTodo },
+  { panel: 'automation', label: 'Automação', icon: RefreshCw },
   { panel: 'email', label: 'Email', icon: Mail },
   { panel: 'social', label: 'Social', icon: Share2 },
   { panel: 'campaigns', label: 'Campanhas', icon: Target },

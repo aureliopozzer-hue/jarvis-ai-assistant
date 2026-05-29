@@ -216,3 +216,44 @@ model FinanceAlert {
   triggered Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model Automation {
+  id        String    @id @default(cuid())
+  name      String
+  trigger   String    // JSON: { type: "schedule"|"event"|"condition", config: {} }
+  actions   String    // JSON: [{ type: "notify"|"email"|"webhook"|"jarvis_action", config: {} }]
+  isActive  Boolean   @default(true)
+  lastRun   DateTime?
+  runCount  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("todo") // "todo" | "in_progress" | "done"
+  priority    String    @default("medium") // "low" | "medium" | "high" | "urgent"
+  dueDate     DateTime?
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#00d4ff")
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WeatherCache {
+  id        String   @id @default(cuid())
+  city      String   @unique
+  data      String   // JSON
+  fetchedAt DateTime @default(now())
+}
