@@ -43,7 +43,7 @@ interface UseSystemMonitorReturn {
 export function useSystemMonitor(
   options: UseSystemMonitorOptions = {}
 ): UseSystemMonitorReturn {
-  const { interval = 5000, autoStart = true } = options;
+  const { interval = 10000, autoStart = true } = options;
 
   const [data, setData] = useState<SystemStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);

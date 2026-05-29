@@ -11,9 +11,7 @@ import {
   Zap,
   Cpu,
   Shield,
-  ExternalLink,
   X,
-  Activity,
   Trash2,
   Check,
 } from 'lucide-react';
@@ -28,11 +26,13 @@ import { JarvisChat } from '@/components/jarvis/jarvis-chat';
 import { JarvisVision } from '@/components/jarvis/jarvis-vision';
 import { JarvisSearch } from '@/components/jarvis/jarvis-search';
 import { JarvisDashboard } from '@/components/jarvis/jarvis-dashboard';
+import { JarvisAmbient } from '@/components/jarvis/jarvis-ambient';
 import { useJarvisStore, type Notification } from '@/lib/jarvis-store';
 import { useWakeWord } from '@/hooks/use-wake-word';
 import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
 import { useProactive } from '@/hooks/use-proactive';
 import { useSystemMonitor } from '@/hooks/use-system-monitor';
+import { useSoundEffects } from '@/hooks/use-sound-effects';
 
 // ─── Right Sidebar - Notifications ───────────────────────────────────
 
@@ -164,15 +164,26 @@ function getGreeting(): string {
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function Home() {
-  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel } = useJarvisStore();
+  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode } = useJarvisStore();
+
+  // Sound effects hook
+  const { playActivation, playDeactivation, playNotification, playSuccess, playWakeWord, playMessageSent } = useSoundEffects();
 
   // Wake word hook
-  const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported } = useWakeWord({
+  const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported, commandText } = useWakeWord({
     autoStart: false,
     onWake: () => {
-      // When wake word is detected, switch to chat panel
+      // When wake word is detected, play the wake sound and switch to chat panel
+      playWakeWord();
       setActivePanel('chat');
-      // The store's wakeWordState will be synced via effect below
+    },
+    onCommand: (cmd) => {
+      // When a command is captured after the wake word, send it to chat
+      const store = useJarvisStore.getState();
+      if (cmd.trim()) {
+        playMessageSent();
+        store.sendMessage(cmd.trim());
+      }
     },
   });
 
@@ -207,7 +218,8 @@ export default function Home() {
     }
   }, [wakeWordActive, wakeWordSupported, startWakeListening, stopWakeListening, setWakeWordState]);
 
-  // When wake word detects "jarvis", auto-switch to chat and reset after 3s
+  // When wake word detects "jarvis", auto-switch to chat
+  // Command timeout is handled inside the hook now (5 seconds)
   const wakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (wakeWordState === 'awake') {
@@ -218,10 +230,10 @@ export default function Home() {
         clearTimeout(wakeResetTimerRef.current);
       }
 
-      // Reset after 3 seconds
+      // Reset after 6 seconds (slightly longer than hook's 5s timeout)
       wakeResetTimerRef.current = setTimeout(() => {
         resetWake();
-      }, 3000);
+      }, 6000);
     }
 
     return () => {
@@ -230,6 +242,9 @@ export default function Home() {
       }
     };
   }, [wakeWordState, setActivePanel, resetWake]);
+
+  // Track previous notification count to play sound on new notifications
+  const prevNotifCountRef = useRef(0);
 
   // Initial data loading and greeting
   useEffect(() => {
@@ -264,10 +279,56 @@ export default function Home() {
         setTimeout(() => {
           const greeting = getGreeting();
           speakVoice(`Sistema JARVIS online. ${greeting}, senhor. Como posso ajudar?`);
+          playSuccess();
         }, 2000);
       }
     }
-  }, [loadConversations, loadNotifications, speakVoice]);
+
+    // Play activation sound on initial load
+    const activated = sessionStorage.getItem('jarvis-activated');
+    if (!activated) {
+      sessionStorage.setItem('jarvis-activated', 'true');
+      setTimeout(() => {
+        playActivation();
+      }, 500);
+    }
+  }, [loadConversations, loadNotifications, speakVoice, playActivation, playSuccess]);
+
+  // Play notification sound when new notifications are added
+  const notifications = useJarvisStore((s) => s.notifications);
+  useEffect(() => {
+    if (notifications.length > prevNotifCountRef.current && prevNotifCountRef.current > 0) {
+      playNotification();
+    }
+    prevNotifCountRef.current = notifications.length;
+  }, [notifications.length, playNotification]);
+
+  // Play success sound when JARVIS responds (new assistant message)
+  const messages = useJarvisStore((s) => s.messages);
+  const prevMsgCountRef = useRef(0);
+  useEffect(() => {
+    if (messages.length > prevMsgCountRef.current && prevMsgCountRef.current > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        playSuccess();
+      } else if (lastMsg?.role === 'user') {
+        playMessageSent();
+      }
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages.length, playSuccess, playMessageSent]);
+
+  // Play deactivation sound on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      playDeactivation();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [playDeactivation]);
 
   // Handle online/offline events
   useEffect(() => {
@@ -300,7 +361,22 @@ export default function Home() {
   };
 
   return (
-    <div className="jarvis-grid-bg flex h-screen flex-col overflow-hidden bg-jarvis-dark">
+    <div className="jarvis-grid-bg jarvis-hex-grid flex h-screen flex-col overflow-hidden bg-jarvis-dark">
+      {/* Ambient Mode Background Layer */}
+      <AnimatePresence>
+        {ambientMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="fixed inset-0 z-0"
+          >
+            <JarvisAmbient />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Wake word visual flash overlay */}
       <AnimatePresence>
         {wakeWordState === 'awake' && (
@@ -337,6 +413,11 @@ export default function Home() {
             <span className="text-[10px] font-semibold tracking-[0.2em] text-jarvis-cyan/50">
               {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : 'PAINEL'}
             </span>
+            {wakeWordState === 'awake' && commandText && (
+              <span className="ml-2 text-[10px] text-jarvis-cyan animate-pulse">
+                &quot;{commandText}&quot;
+              </span>
+            )}
             <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400 jarvis-pulse" />
           </div>
 

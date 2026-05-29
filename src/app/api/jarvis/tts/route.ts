@@ -22,65 +22,73 @@ export async function POST(request: NextRequest) {
 
     const zai = await getZAI();
 
-    const result = await zai.audio.tts.create({
-      input: text,
-      voice: voice || 'alloy',
+    // Split text into chunks if too long (max 1024 chars per request)
+    const MAX_CHUNK = 1000;
+    const chunks: string[] = [];
+    if (text.length <= MAX_CHUNK) {
+      chunks.push(text);
+    } else {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      let currentChunk = '';
+      for (const sentence of sentences) {
+        if ((currentChunk + sentence).length <= MAX_CHUNK) {
+          currentChunk += sentence;
+        } else {
+          if (currentChunk) chunks.push(currentChunk.trim());
+          currentChunk = sentence;
+        }
+      }
+      if (currentChunk) chunks.push(currentChunk.trim());
+    }
+
+    // Valid voices: tongtong, chuichui, xiaochen, jam, kazi, douji, luodo
+    const selectedVoice = voice || 'jam'; // jam = English gentleman voice
+
+    if (chunks.length === 1) {
+      // Single chunk - stream directly
+      const response = await zai.audio.tts.create({
+        input: chunks[0],
+        voice: selectedVoice,
+        speed: 1.0,
+        response_format: 'mp3',
+        stream: false,
+      });
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(new Uint8Array(arrayBuffer));
+
+      return new NextResponse(buffer, {
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': buffer.length.toString(),
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
+
+    // Multiple chunks - combine audio buffers
+    const audioBuffers: Buffer[] = [];
+    for (const chunk of chunks) {
+      const response = await zai.audio.tts.create({
+        input: chunk,
+        voice: selectedVoice,
+        speed: 1.0,
+        response_format: 'mp3',
+        stream: false,
+      });
+
+      const arrayBuffer = await response.arrayBuffer();
+      audioBuffers.push(Buffer.from(new Uint8Array(arrayBuffer)));
+    }
+
+    const combined = Buffer.concat(audioBuffers);
+    return new NextResponse(combined, {
+      headers: {
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': combined.length.toString(),
+        'Cache-Control': 'no-cache',
+      },
     });
-
-    // The TTS result may return audio data in different formats
-    // Check if result is a buffer/arraybuffer or has base64 data
-    if (result instanceof ArrayBuffer) {
-      return new NextResponse(result, {
-        headers: {
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': result.byteLength.toString(),
-        },
-      });
-    }
-
-    if (result instanceof Uint8Array) {
-      return new NextResponse(result, {
-        headers: {
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': result.length.toString(),
-        },
-      });
-    }
-
-    // If result has a base64 field or similar structure
-    if (result?.data) {
-      const buffer = Buffer.from(result.data, 'base64');
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': buffer.length.toString(),
-        },
-      });
-    }
-
-    if (result?.audio) {
-      const buffer = Buffer.from(result.audio, 'base64');
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': buffer.length.toString(),
-        },
-      });
-    }
-
-    // If result itself is a base64 string
-    if (typeof result === 'string') {
-      const buffer = Buffer.from(result, 'base64');
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': buffer.length.toString(),
-        },
-      });
-    }
-
-    // Fallback: return the raw result as JSON so client can handle it
-    return NextResponse.json({ audio: result });
   } catch (error) {
     console.error('[JARVIS TTS ERROR]', error);
     return NextResponse.json(

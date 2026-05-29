@@ -1,19 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Bell,
   Settings,
   Wifi,
   WifiOff,
-  Brain,
   Mic,
-  MicOff,
   Volume2,
   VolumeX,
   Radio,
   SignalZero,
+  Sparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +23,76 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useJarvisStore } from '@/lib/jarvis-store';
+
+// ─── Mini Arc Reactor for Header ──────────────────────────────────────
+
+function MiniArcReactor() {
+  return (
+    <div className="relative w-7 h-7 flex items-center justify-center">
+      {/* Outer spinning ring */}
+      <svg viewBox="0 0 28 28" className="absolute inset-0 w-full h-full jarvis-mini-reactor">
+        <circle
+          cx="14"
+          cy="14"
+          r="12"
+          fill="none"
+          stroke="rgba(0, 212, 255, 0.3)"
+          strokeWidth="0.8"
+          strokeDasharray="6 3 10 4"
+        />
+      </svg>
+      {/* Inner counter-spinning ring */}
+      <svg viewBox="0 0 28 28" className="absolute inset-0 w-full h-full jarvis-mini-reactor-reverse">
+        <circle
+          cx="14"
+          cy="14"
+          r="9"
+          fill="none"
+          stroke="rgba(0, 212, 255, 0.4)"
+          strokeWidth="0.6"
+          strokeDasharray="4 2 8 3"
+        />
+      </svg>
+      {/* Center glow dot */}
+      <div className="absolute w-2 h-2 rounded-full bg-jarvis-cyan/40 jarvis-pulse" />
+    </div>
+  );
+}
+
+// ─── HUD Data Readout Scrolling Text ──────────────────────────────────
+
+function HudDataReadout() {
+  const systemStats = useJarvisStore((s) => s.systemStats);
+  const isOnline = useJarvisStore((s) => s.isOnline);
+
+  const cpuUsage = systemStats?.cpu?.usage ?? 0;
+  const memPct = systemStats?.memory?.percentage ?? 0;
+  const uptime = systemStats?.uptime ?? 0;
+  const cores = systemStats?.cpu?.cores ?? 0;
+  const hostname = systemStats?.hostname ?? '';
+  const platform = systemStats?.platform ?? '';
+
+  const uptimeStr =
+    uptime > 3600
+      ? `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`
+      : `${Math.floor(uptime / 60)}m`;
+
+  const readoutText = useMemo(
+    () =>
+      `◆ CPU: ${cpuUsage}% ◆ RAM: ${memPct}% ◆ CORES: ${cores} ◆ UPTIME: ${uptimeStr} ◆ HOST: ${hostname} ◆ OS: ${platform} ◆ STATUS: ${isOnline ? 'ONLINE' : 'OFFLINE'} ◆`,
+    [cpuUsage, memPct, cores, uptimeStr, hostname, platform, isOnline]
+  );
+
+  return (
+    <div className="jarvis-data-readout hidden xl:block max-w-[300px]">
+      <span className="text-[8px] font-mono text-jarvis-cyan/25 tracking-wider">
+        {readoutText}
+      </span>
+    </div>
+  );
+}
+
+// ─── Main Header Component ────────────────────────────────────────────
 
 export function JarvisHeader() {
   const {
@@ -37,6 +106,8 @@ export function JarvisHeader() {
     wakeWordActive,
     wakeWordState,
     setWakeWordActive,
+    ambientMode,
+    toggleAmbientMode,
   } = useJarvisStore();
 
   const [time, setTime] = useState<string>('');
@@ -70,7 +141,7 @@ export function JarvisHeader() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <header className="jarvis-panel jarvis-hud-corner flex items-center justify-between px-4 py-2 md:px-6 md:py-3">
+      <header className="jarvis-panel jarvis-hud-brackets jarvis-ambient-glow flex items-center justify-between px-4 py-2 md:px-6 md:py-3">
         {/* Left section - Logo & Menu */}
         <div className="flex items-center gap-3">
           <Button
@@ -96,10 +167,8 @@ export function JarvisHeader() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="relative flex items-center justify-center">
-              <div className="absolute h-7 w-7 rounded-full bg-jarvis-cyan/20 jarvis-pulse" />
-              <Brain className="relative z-10 h-5 w-5 text-jarvis-cyan" />
-            </div>
+            {/* Mini Arc Reactor */}
+            <MiniArcReactor />
             <div className="flex flex-col">
               <h1 className="jarvis-glow-text text-base font-bold tracking-widest text-jarvis-cyan md:text-lg">
                 J.A.R.V.I.S.
@@ -111,10 +180,10 @@ export function JarvisHeader() {
           </motion.div>
         </div>
 
-        {/* Center section - Date/Time */}
+        {/* Center section - Date/Time + HUD Readout */}
         <div className="hidden flex-col items-center md:flex">
           <motion.div
-            className="font-mono text-lg font-medium tracking-wider text-jarvis-cyan/90"
+            className="font-mono text-lg font-medium tracking-wider text-jarvis-cyan/90 jarvis-glow-text"
             key={time}
             initial={{ opacity: 0.8 }}
             animate={{ opacity: 1 }}
@@ -125,6 +194,8 @@ export function JarvisHeader() {
           <div className="font-mono text-[10px] tracking-wider text-jarvis-cyan/40">
             {date}
           </div>
+          {/* HUD Data Readout — scrolling stats text */}
+          <HudDataReadout />
         </div>
 
         {/* Right section - Status & Actions */}
@@ -164,15 +235,17 @@ export function JarvisHeader() {
             </TooltipContent>
           </Tooltip>
 
-          {/* Connection Status */}
+          {/* Connection Status — Dramatic pulsing ring */}
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5 rounded-md px-2 py-1">
-                {isOnline ? (
-                  <Wifi className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <WifiOff className="h-3.5 w-3.5 text-red-400" />
-                )}
+                <div className={`relative flex items-center justify-center ${isOnline ? 'jarvis-status-ring' : ''}`}>
+                  {isOnline ? (
+                    <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <WifiOff className="h-3.5 w-3.5 text-red-400" />
+                  )}
+                </div>
                 <span
                   className={`hidden text-[10px] font-medium md:inline ${
                     isOnline ? 'text-emerald-400' : 'text-red-400'
@@ -192,7 +265,7 @@ export function JarvisHeader() {
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5 rounded-md px-2 py-1">
                 <motion.div
-                  className="h-2 w-2 rounded-full bg-jarvis-cyan"
+                  className="h-2 w-2 rounded-full bg-jarvis-cyan jarvis-status-ring"
                   animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 />
@@ -292,6 +365,27 @@ export function JarvisHeader() {
             </TooltipTrigger>
             <TooltipContent>
               <p>Settings</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Ambient Mode Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleAmbientMode}
+                className={`h-8 w-8 transition-colors ${
+                  ambientMode
+                    ? 'text-jarvis-cyan bg-jarvis-cyan/10'
+                    : 'text-jarvis-cyan/40 hover:bg-jarvis-cyan/10 hover:text-jarvis-cyan'
+                }`}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle Ambient HUD</p>
             </TooltipContent>
           </Tooltip>
         </div>

@@ -16,11 +16,30 @@ import {
   Sparkles,
   FileText,
   Code,
+  Cpu,
+  Database,
+  Bell,
+  BookOpen,
+  Wrench,
+  Loader2,
 } from 'lucide-react';
 import { useJarvisStore, type Message } from '@/lib/jarvis-store';
 import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+
+// ─── Tool Icon & Label Map ──────────────────────────────────────────
+
+const toolMeta: Record<string, { icon: typeof Search; label: string; emoji: string }> = {
+  search: { icon: Search, label: 'Pesquisando', emoji: '🔍' },
+  vision: { icon: Image, label: 'Analisando imagem', emoji: '👁️' },
+  generate_image: { icon: Sparkles, label: 'Gerando imagem', emoji: '🎨' },
+  read_page: { icon: BookOpen, label: 'Lendo página', emoji: '📖' },
+  system: { icon: Cpu, label: 'Verificando sistema', emoji: '💻' },
+  memory_save: { icon: Database, label: 'Salvando memória', emoji: '💾' },
+  memory_recall: { icon: Database, label: 'Recuperando memória', emoji: '🧠' },
+  notify: { icon: Bell, label: 'Criando notificação', emoji: '🔔' },
+};
 
 // ─── Quick Actions ───────────────────────────────────────────────────
 
@@ -79,30 +98,37 @@ function MarkdownCodeBlock({
 
   if (match) {
     return (
-      <div className="relative my-3 rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between bg-[#1a1a2e] px-4 py-2 text-xs text-jarvis-cyan/70">
-          <span>{match[1]}</span>
+      <div className="relative my-3 rounded-lg overflow-hidden jarvis-holo-terminal">
+        <div className="relative z-[3] flex items-center justify-between bg-[#0a0e1a] px-4 py-2 text-xs text-jarvis-cyan/70 border-b border-jarvis-cyan/10">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-jarvis-cyan/40 jarvis-pulse" />
+            {match[1]}
+          </span>
+          <span className="text-[9px] text-jarvis-cyan/30">JARVIS TERMINAL</span>
         </div>
-        <SyntaxHighlighter
-          style={oneDark}
-          language={match[1]}
-          PreTag="div"
-          customStyle={{
-            margin: 0,
-            borderRadius: '0 0 8px 8px',
-            fontSize: '13px',
-            background: '#0d1117',
-          }}
-        >
-          {codeString}
-        </SyntaxHighlighter>
+        <div className="relative z-[3]">
+          <SyntaxHighlighter
+            style={oneDark}
+            language={match[1]}
+            PreTag="div"
+            customStyle={{
+              margin: 0,
+              borderRadius: '0',
+              fontSize: '13px',
+              background: 'rgba(0, 5, 15, 0.95)',
+              color: '#00d4ff',
+            }}
+          >
+            {codeString}
+          </SyntaxHighlighter>
+        </div>
       </div>
     );
   }
 
   return (
     <code
-      className="bg-secondary/80 text-jarvis-cyan px-1.5 py-0.5 rounded text-sm font-mono"
+      className="bg-jarvis-dark/80 text-jarvis-cyan px-1.5 py-0.5 rounded text-sm font-mono border border-jarvis-cyan/10"
       {...props}
     >
       {children}
@@ -110,7 +136,64 @@ function MarkdownCodeBlock({
   );
 }
 
-// ─── Typing Indicator ────────────────────────────────────────────────
+// ─── Agent Thinking Indicator ────────────────────────────────────────
+
+function AgentThinkingIndicator({ activeTools }: { activeTools: string[] }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="flex items-start gap-3 px-4 py-3"
+    >
+      <Avatar className="h-8 w-8 shrink-0 jarvis-glow">
+        <AvatarFallback className="bg-jarvis-dark border border-jarvis-cyan/30 text-jarvis-cyan">
+          <Bot className="h-4 w-4" />
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col gap-2 bg-card/80 rounded-2xl rounded-tl-sm px-4 py-3 jarvis-glow">
+        {/* Main indicator */}
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 text-jarvis-cyan animate-spin" />
+          <span className="text-xs text-jarvis-cyan font-medium">
+            JARVIS está usando ferramentas...
+          </span>
+        </div>
+        {/* Active tool indicators */}
+        {activeTools.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {activeTools.map((toolName) => {
+              const meta = toolMeta[toolName];
+              if (!meta) return null;
+              const Icon = meta.icon;
+              return (
+                <motion.div
+                  key={toolName}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-1.5 bg-jarvis-cyan/10 border border-jarvis-cyan/20 rounded-full px-2.5 py-1"
+                >
+                  <Icon className="h-3 w-3 text-jarvis-cyan animate-pulse" />
+                  <span className="text-[10px] text-jarvis-cyan/80 font-medium">
+                    {meta.emoji} {meta.label}...
+                  </span>
+                </motion.div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex gap-1">
+            <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
+            <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
+            <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Typing Indicator — Holographic Processing ────────────────────────
 
 function TypingIndicator() {
   return (
@@ -125,15 +208,59 @@ function TypingIndicator() {
           <Bot className="h-4 w-4" />
         </AvatarFallback>
       </Avatar>
-      <div className="flex items-center gap-2 bg-card/80 rounded-2xl rounded-tl-sm px-4 py-3 jarvis-glow">
-        <span className="text-xs text-jarvis-cyan/60 mr-1">JARVIS</span>
-        <div className="flex gap-1">
-          <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
-          <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
-          <span className="jarvis-typing-dot h-2 w-2 rounded-full bg-jarvis-cyan" />
+      <div className="jarvis-processing bg-card/80 rounded-2xl rounded-tl-sm px-4 py-3 jarvis-glow">
+        <span className="text-xs text-jarvis-cyan/60 mr-2">JARVIS</span>
+        <span className="text-xs text-jarvis-cyan/40 jarvis-cursor-blink">Processando</span>
+        {/* Holographic processing visualization */}
+        <div className="flex items-center gap-1 mt-2">
+          <svg viewBox="0 0 60 12" className="w-16 h-3">
+            {[0, 6, 12, 18, 24, 30, 36, 42, 48, 54].map((x, i) => (
+              <motion.rect
+                key={i}
+                x={x}
+                y={0}
+                width={4}
+                height={12}
+                rx={1}
+                fill="rgba(0, 212, 255, 0.4)"
+                animate={{
+                  opacity: [0.2, 0.8, 0.2],
+                  height: [4, 12, 4],
+                  y: [4, 0, 4],
+                }}
+                transition={{
+                  duration: 0.8,
+                  repeat: Infinity,
+                  delay: i * 0.08,
+                }}
+              />
+            ))}
+          </svg>
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// ─── Tools Used Badge ────────────────────────────────────────────────
+
+function ToolsUsedBadge({ toolsUsed }: { toolsUsed: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-jarvis-cyan/10">
+      <Wrench className="h-3 w-3 text-jarvis-cyan/40" />
+      <span className="text-[10px] text-jarvis-cyan/40 mr-1">Ferramentas:</span>
+      {toolsUsed.map((toolName) => {
+        const meta = toolMeta[toolName];
+        return (
+          <span
+            key={toolName}
+            className="inline-flex items-center gap-0.5 bg-jarvis-cyan/5 border border-jarvis-cyan/10 rounded-full px-1.5 py-0.5 text-[9px] text-jarvis-cyan/50"
+          >
+            {meta?.emoji || '🔧'} {meta?.label || toolName}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -169,11 +296,11 @@ function MessageBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, y: 15, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
       className={cn(
-        'flex items-start gap-3 px-4 py-3 jarvis-message-enter',
+        'flex items-start gap-3 px-4 py-3 jarvis-message-holo-enter',
         isUser ? 'flex-row-reverse' : 'flex-row'
       )}
     >
@@ -233,11 +360,24 @@ function MessageBubble({
           )}
         </div>
 
+        {/* Tools used badge */}
+        {message.toolsUsed && message.toolsUsed.length > 0 && (
+          <ToolsUsedBadge toolsUsed={message.toolsUsed} />
+        )}
+
         {/* Voice wave animation when speaking this message */}
         {isCurrentlySpeaking && !isUser && (
-          <div className="jarvis-voice-wave mt-2 text-jarvis-cyan">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="jarvis-voice-bar" />
+          <div className="jarvis-voice-waveform mt-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="jarvis-waveform-bar"
+                style={{
+                  height: `${6 + Math.sin(i * 0.8) * 8 + Math.random() * 6}px`,
+                  animationDelay: `${i * 0.06}s`,
+                  animationDuration: `${0.4 + Math.random() * 0.4}s`,
+                }}
+              />
             ))}
           </div>
         )}
@@ -363,8 +503,10 @@ export function JarvisChat() {
   const isLoading = useJarvisStore((s) => s.isLoading);
   const autoSpeak = useJarvisStore((s) => s.autoSpeak);
   const sendMessage = useJarvisStore((s) => s.sendMessage);
+  const agentThinking = useJarvisStore((s) => s.agentThinking);
+  const activeTools = useJarvisStore((s) => s.activeTools);
 
-  const { speak: speakVoice, stop: stopVoice, isSpeaking: voiceSpeaking, state: voiceState } = useJarvisVoice();
+  const { speak: speakVoice, stop: stopVoice, isSpeaking: voiceSpeaking, state: voiceState, queueLength } = useJarvisVoice();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
@@ -374,9 +516,9 @@ export function JarvisChat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, agentThinking]);
 
-  // Auto-speak new assistant messages
+  // Auto-speak new assistant messages using enhanced voice pipeline
   const lastMessageRef = useRef<Message | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
@@ -390,11 +532,13 @@ export function JarvisChat() {
       requestAnimationFrame(() => {
         setSpeakingMessageId(lastMessage.id);
       });
-      speakVoice(lastMessage.content);
+      // Use the enhanced speak with interruption support
+      // If already speaking, queue the new message
+      speakVoice(lastMessage.content, { queue: voiceSpeaking });
     } else {
       lastMessageRef.current = lastMessage;
     }
-  }, [messages, autoSpeak, speakVoice]);
+  }, [messages, autoSpeak, speakVoice, voiceSpeaking]);
 
   // Track when speaking stops to clear the speaking message
   useEffect(() => {
@@ -418,7 +562,8 @@ export function JarvisChat() {
   // Handle speak button for a specific message
   const handleSpeak = useCallback(
     (text: string) => {
-      speakVoice(text);
+      // Interrupt any current speech and play this message immediately
+      speakVoice(text, { queue: false });
     },
     [speakVoice]
   );
@@ -442,14 +587,27 @@ export function JarvisChat() {
             exit={{ opacity: 0, height: 0 }}
             className="flex items-center justify-center gap-2 py-1.5 bg-jarvis-cyan/5 border-b border-jarvis-cyan/10"
           >
-            <div className="jarvis-voice-wave text-jarvis-cyan">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="jarvis-voice-bar" />
+            <div className="jarvis-voice-waveform text-jarvis-cyan">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="jarvis-waveform-bar"
+                  style={{
+                    height: `${4 + Math.sin(i * 0.6) * 8}px`,
+                    animationDelay: `${i * 0.05}s`,
+                    animationDuration: `${0.3 + (i % 3) * 0.15}s`,
+                  }}
+                />
               ))}
             </div>
             <span className="text-[10px] font-medium text-jarvis-cyan/60 ml-2">
               {voiceState === 'loading' ? 'Carregando voz...' : 'Falando...'}
             </span>
+            {queueLength > 0 && (
+              <span className="text-[10px] text-jarvis-cyan/30 ml-1">
+                (+{queueLength} na fila)
+              </span>
+            )}
             <button
               onClick={stopVoice}
               className="ml-2 text-[10px] text-jarvis-cyan/40 hover:text-jarvis-cyan transition-colors"
@@ -479,7 +637,10 @@ export function JarvisChat() {
             ))}
           </AnimatePresence>
           <AnimatePresence>
-            {isLoading && <TypingIndicator />}
+            {isLoading && agentThinking && (
+              <AgentThinkingIndicator activeTools={activeTools} />
+            )}
+            {isLoading && !agentThinking && <TypingIndicator />}
           </AnimatePresence>
         </div>
       )}

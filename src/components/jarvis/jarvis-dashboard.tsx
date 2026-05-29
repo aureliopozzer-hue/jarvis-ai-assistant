@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
   Search,
@@ -25,6 +25,11 @@ import {
   Brain,
   Timer,
   RefreshCw,
+  Plus,
+  X,
+  Filter,
+  Star,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,108 +38,203 @@ import { useJarvisStore, type JarvisPanel, type Notification, type Memory } from
 import { useSystemMonitor } from '@/hooks/use-system-monitor';
 import { useProactive } from '@/hooks/use-proactive';
 
-/* ─── Arc Reactor Animation (CPU-responsive) ─────────────────────────── */
+/* ─── Enhanced Arc Reactor Animation (CPU-responsive, Movie-style) ──── */
 
 function ArcReactor({ cpuUsage }: { cpuUsage: number }) {
   // Speed varies based on CPU usage: faster when busier
   const baseDuration = Math.max(1, 8 - (cpuUsage / 100) * 6);
+  // Glow intensity scales with CPU usage
+  const glowIntensity = 0.3 + (cpuUsage / 100) * 0.7;
+  // Waveform data for the center sparkline (simulated ECG-style)
+  const [waveOffset, setWaveOffset] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWaveOffset((prev) => (prev + 1) % 100);
+    }, 80);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Generate sparkline path
+  const sparklinePath = useMemo(() => {
+    const points: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      const x = 10 + (i * 40) / 30;
+      const noise = Math.sin((i + waveOffset) * 0.5) * 4 + Math.sin((i + waveOffset) * 1.3) * 2;
+      const y = 50 + noise;
+      points.push(i === 0 ? `M${x} ${y}` : `L${x} ${y}`);
+    }
+    return points.join(' ');
+  }, [waveOffset]);
 
   return (
-    <div className="relative flex items-center justify-center w-48 h-48 mx-auto my-4">
-      {/* Outermost ring */}
-      <div className="absolute inset-0 rounded-full border border-jarvis-cyan/10" />
+    <div className="relative flex items-center justify-center w-56 h-56 mx-auto my-4">
+      {/* Outermost decorative ring — static frame */}
+      <svg viewBox="0 0 240 240" className="absolute inset-0 w-full h-full">
+        <circle cx="120" cy="120" r="115" fill="none" stroke="rgba(0, 212, 255, 0.08)" strokeWidth="1" />
+        {/* Tick marks around the outer edge */}
+        {Array.from({ length: 36 }).map((_, i) => {
+          const angle = (i * 10 * Math.PI) / 180;
+          const r1 = 110;
+          const r2 = i % 3 === 0 ? 105 : 107;
+          return (
+            <line
+              key={i}
+              x1={120 + r1 * Math.cos(angle)}
+              y1={120 + r1 * Math.sin(angle)}
+              x2={120 + r2 * Math.cos(angle)}
+              y2={120 + r2 * Math.sin(angle)}
+              stroke={`rgba(0, 212, 255, ${i % 3 === 0 ? 0.3 : 0.1})`}
+              strokeWidth={i % 3 === 0 ? 1.5 : 0.5}
+            />
+          );
+        })}
+      </svg>
 
-      {/* Rotating outer arcs */}
+      {/* Ring 1: Outermost rotating arc segments */}
       <div
         className="absolute inset-2 rounded-full jarvis-arc-spinner"
-        style={{ animationDuration: `${baseDuration}s` }}
+        style={{ animationDuration: `${baseDuration * 1.2}s` }}
       >
         <svg viewBox="0 0 200 200" className="w-full h-full">
-          <circle
-            cx="100"
-            cy="100"
-            r="90"
-            fill="none"
-            stroke="rgba(0, 212, 255, 0.3)"
-            strokeWidth="2"
-            strokeDasharray="40 20 60 30 40 20 60 30"
-          />
+          <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(0, 212, 255, 0.15)" strokeWidth="1.5" strokeDasharray="35 15 55 25 35 15 55 25" />
         </svg>
       </div>
 
-      {/* Counter-rotating middle arcs */}
+      {/* Ring 2: Counter-rotating segmented arc */}
       <div
-        className="absolute inset-5 rounded-full jarvis-arc-spinner"
-        style={{ animationDuration: `${baseDuration * 0.75}s`, animationDirection: 'reverse' }}
+        className="absolute inset-4 rounded-full jarvis-arc-spinner"
+        style={{ animationDuration: `${baseDuration * 0.85}s`, animationDirection: 'reverse' }}
       >
         <svg viewBox="0 0 200 200" className="w-full h-full">
-          <circle
-            cx="100"
-            cy="100"
-            r="80"
-            fill="none"
-            stroke="rgba(0, 212, 255, 0.5)"
-            strokeWidth="2.5"
-            strokeDasharray="25 15 50 20 25 15 50 20"
-          />
+          <circle cx="100" cy="100" r="85" fill="none" stroke={`rgba(0, 212, 255, ${0.2 * glowIntensity})`} strokeWidth="2" strokeDasharray="20 12 45 18 20 12 45 18" />
         </svg>
       </div>
 
-      {/* Inner rotating ring */}
+      {/* Ring 3: Mid rotating ring with thicker segments */}
       <div
-        className="absolute inset-10 rounded-full jarvis-arc-spinner"
-        style={{ animationDuration: `${baseDuration * 0.5}s` }}
+        className="absolute inset-7 rounded-full jarvis-arc-spinner"
+        style={{ animationDuration: `${baseDuration * 0.6}s` }}
       >
         <svg viewBox="0 0 200 200" className="w-full h-full">
-          <circle
-            cx="100"
-            cy="100"
-            r="60"
-            fill="none"
-            stroke="rgba(0, 212, 255, 0.6)"
-            strokeWidth="2"
-            strokeDasharray="30 10 20 10 30 10"
-          />
+          <circle cx="100" cy="100" r="75" fill="none" stroke={`rgba(0, 212, 255, ${0.35 * glowIntensity})`} strokeWidth="2.5" strokeDasharray="30 8 50 15 30 8 50 15" />
         </svg>
       </div>
 
-      {/* Inner counter-rotating ring */}
+      {/* Ring 4: Counter-rotating inner ring */}
+      <div
+        className="absolute inset-11 rounded-full jarvis-arc-spinner"
+        style={{ animationDuration: `${baseDuration * 0.45}s`, animationDirection: 'reverse' }}
+      >
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="100" cy="100" r="62" fill="none" stroke={`rgba(0, 212, 255, ${0.5 * glowIntensity})`} strokeWidth="2" strokeDasharray="18 10 35 12 18 10 35 12" />
+        </svg>
+      </div>
+
+      {/* Ring 5: Fastest inner ring */}
       <div
         className="absolute inset-14 rounded-full jarvis-arc-spinner"
-        style={{ animationDuration: `${baseDuration * 0.375}s`, animationDirection: 'reverse' }}
+        style={{ animationDuration: `${baseDuration * 0.3}s` }}
       >
         <svg viewBox="0 0 200 200" className="w-full h-full">
-          <circle
-            cx="100"
-            cy="100"
-            r="40"
-            fill="none"
-            stroke="rgba(0, 212, 255, 0.8)"
-            strokeWidth="3"
-            strokeDasharray="15 8 25 8 15 8"
-          />
+          <circle cx="100" cy="100" r="48" fill="none" stroke={`rgba(0, 212, 255, ${0.65 * glowIntensity})`} strokeWidth="2.5" strokeDasharray="12 6 22 8 12 6 22 8" />
         </svg>
       </div>
 
-      {/* Glowing center — CPU percentage */}
-      <div className="absolute inset-[4.5rem] rounded-full bg-jarvis-cyan/10 jarvis-pulse">
-        <div className="absolute inset-1 rounded-full bg-jarvis-cyan/20 jarvis-glow-strong" />
-        <div className="absolute inset-2 rounded-full bg-jarvis-cyan/30" />
-        <div className="absolute inset-3 rounded-full bg-jarvis-dark flex items-center justify-center">
-          <span className="text-xs font-bold text-jarvis-cyan jarvis-glow-text">
+      {/* Orbiting data points — small dots orbiting the reactor */}
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const orbitRadius = 60 + (i % 3) * 14;
+        const speed = baseDuration * (0.5 + i * 0.15);
+        const direction = i % 2 === 0 ? '' : 'reverse';
+        const delay = i * 0.8;
+        return (
+          <div
+            key={i}
+            className="absolute inset-0 jarvis-arc-spinner"
+            style={{ animationDuration: `${speed}s`, animationDirection: direction, animationDelay: `${delay}s` }}
+          >
+            <svg viewBox="0 0 240 240" className="w-full h-full">
+              <circle
+                cx={120 + orbitRadius}
+                cy="120"
+                r={i % 3 === 0 ? 2 : 1.5}
+                fill={`rgba(0, 212, 255, ${0.4 + (i % 3) * 0.2})`}
+              />
+            </svg>
+          </div>
+        );
+      })}
+
+      {/* Triangular HUD overlay (Iron Man targeting reticle) */}
+      <svg viewBox="0 0 240 240" className="absolute inset-0 w-full h-full jarvis-energy-field" style={{ opacity: glowIntensity * 0.5 }}>
+        {/* Outer triangle */}
+        <polygon
+          points="120,45 185,155 55,155"
+          fill="none"
+          stroke="rgba(0, 212, 255, 0.15)"
+          strokeWidth="1"
+        />
+        {/* Inner triangle (inverted) */}
+        <polygon
+          points="120,155 85,85 155,85"
+          fill="none"
+          stroke="rgba(0, 212, 255, 0.12)"
+          strokeWidth="0.8"
+        />
+        {/* Crosshair lines */}
+        <line x1="120" y1="30" x2="120" y2="55" stroke="rgba(0, 212, 255, 0.2)" strokeWidth="0.5" />
+        <line x1="120" y1="185" x2="120" y2="210" stroke="rgba(0, 212, 255, 0.2)" strokeWidth="0.5" />
+        <line x1="30" y1="120" x2="55" y2="120" stroke="rgba(0, 212, 255, 0.2)" strokeWidth="0.5" />
+        <line x1="185" y1="120" x2="210" y2="120" stroke="rgba(0, 212, 255, 0.2)" strokeWidth="0.5" />
+        {/* Corner brackets */}
+        <path d="M50 65 L40 65 L40 75" fill="none" stroke="rgba(0, 212, 255, 0.25)" strokeWidth="1" />
+        <path d="M190 65 L200 65 L200 75" fill="none" stroke="rgba(0, 212, 255, 0.25)" strokeWidth="1" />
+        <path d="M50 175 L40 175 L40 165" fill="none" stroke="rgba(0, 212, 255, 0.25)" strokeWidth="1" />
+        <path d="M190 175 L200 175 L200 165" fill="none" stroke="rgba(0, 212, 255, 0.25)" strokeWidth="1" />
+      </svg>
+
+      {/* Glowing center — CPU percentage + sparkline waveform */}
+      <div
+        className="absolute inset-[3.5rem] rounded-full jarvis-pulse"
+        style={{
+          background: `radial-gradient(circle, rgba(0, 212, 255, ${0.15 * glowIntensity}) 0%, rgba(0, 212, 255, ${0.05 * glowIntensity}) 60%, transparent 100%)`,
+        }}
+      >
+        <div
+          className="absolute inset-1 rounded-full jarvis-glow-strong"
+          style={{ background: `rgba(0, 212, 255, ${0.15 * glowIntensity})` }}
+        />
+        <div className="absolute inset-2 rounded-full" style={{ background: `rgba(0, 212, 255, ${0.2 * glowIntensity})` }} />
+        <div className="absolute inset-3 rounded-full bg-jarvis-dark/95 flex flex-col items-center justify-center gap-0.5">
+          <span className="text-sm font-bold text-jarvis-cyan jarvis-glow-text leading-none">
             {cpuUsage}%
           </span>
+          {/* Mini sparkline waveform */}
+          <svg viewBox="0 0 60 100" className="w-10 h-4 mt-0.5" preserveAspectRatio="none">
+            <path
+              d={sparklinePath}
+              fill="none"
+              stroke={`rgba(0, 212, 255, ${0.5 * glowIntensity})`}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
         </div>
       </div>
 
-      {/* Radial glow overlay */}
+      {/* Pulsating glow overlay that responds to CPU */}
       <div
-        className="absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-full jarvis-pulse"
         style={{
-          background:
-            'radial-gradient(circle, rgba(0, 212, 255, 0.05) 0%, transparent 70%)',
+          background: `radial-gradient(circle, rgba(0, 212, 255, ${0.08 * glowIntensity}) 0%, transparent 60%)`,
         }}
       />
+
+      {/* Energy field noise/interference overlay */}
+      <svg viewBox="0 0 240 240" className="absolute inset-0 w-full h-full jarvis-energy-field pointer-events-none">
+        <circle cx="120" cy="120" r="70" fill="none" stroke="rgba(0, 212, 255, 0.06)" strokeWidth="20" strokeDasharray="2 4" />
+        <circle cx="120" cy="120" r="90" fill="none" stroke="rgba(0, 212, 255, 0.04)" strokeWidth="10" strokeDasharray="3 6" />
+      </svg>
     </div>
   );
 }
@@ -213,23 +313,59 @@ function NotificationItem({ notification }: { notification: Notification }) {
   );
 }
 
-/* ─── Memory Item ────────────────────────────────────────────────────── */
+/* ─── Relative Time Helper ──────────────────────────────────────────── */
 
-function MemoryItem({ memory }: { memory: Memory }) {
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) return 'agora';
+  if (diffMinutes < 60) return `${diffMinutes}min atrás`;
+  if (diffHours < 24) return `${diffHours}h atrás`;
+  if (diffDays < 7) return `${diffDays}d atrás`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+/* ─── Memory Item (Enhanced with relative time + delete) ──────────── */
+
+function MemoryItem({ memory, onDelete }: { memory: Memory; onDelete?: (id: string) => void }) {
   return (
-    <div className="flex items-start gap-2 py-1.5">
+    <div className="flex items-start gap-2 py-1.5 group">
       <Brain className="h-3 w-3 text-jarvis-cyan/50 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-medium text-foreground/80 truncate">
-          {memory.key}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] font-medium text-foreground/80 truncate">
+            {memory.key}
+          </p>
+          {memory.important && (
+            <Star className="h-2.5 w-2.5 text-yellow-400 shrink-0" />
+          )}
+        </div>
         <p className="text-[10px] text-muted-foreground truncate">
           {memory.value}
         </p>
       </div>
-      <Badge variant="outline" className="text-[8px] h-4 px-1 border-jarvis-cyan/20 text-jarvis-cyan/50">
-        {memory.category}
-      </Badge>
+      <div className="flex items-center gap-1 shrink-0">
+        <Badge variant="outline" className="text-[8px] h-4 px-1 border-jarvis-cyan/20 text-jarvis-cyan/50">
+          {memory.category}
+        </Badge>
+        <span className="text-[8px] text-muted-foreground/40">
+          {formatRelativeTime(memory.createdAt)}
+        </span>
+        {onDelete && (
+          <button
+            onClick={() => onDelete(memory.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:text-red-400 text-muted-foreground/40"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -289,6 +425,16 @@ function formatUptime(seconds: number): string {
   return `${minutes}m`;
 }
 
+/* ─── Category Color Mapping ──────────────────────────────────────── */
+
+const CATEGORY_COLORS: Record<string, string> = {
+  preference: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
+  fact: 'bg-jarvis-cyan/10 text-jarvis-cyan border-jarvis-cyan/20',
+  routine: 'bg-amber-400/10 text-amber-400 border-amber-400/20',
+  context: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
+  note: 'bg-rose-400/10 text-rose-400 border-rose-400/20',
+};
+
 /* ─── Main Dashboard Component ──────────────────────────────────────── */
 
 export function JarvisDashboard() {
@@ -304,12 +450,22 @@ export function JarvisDashboard() {
     setActivePanel,
     memories,
     loadMemories,
+    addMemory,
+    removeMemory,
   } = useJarvisStore();
 
   const { data: systemData, isLoading: systemLoading, refresh: refreshSystem } = useSystemMonitor();
-  const { isPolling, lastChecked } = useProactive();
+  const { isPolling, lastChecked, insights, refreshInsights } = useProactive();
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAddMemory, setShowAddMemory] = useState(false);
+  const [memoryFilter, setMemoryFilter] = useState<string>('all');
+  const [memorySearch, setMemorySearch] = useState('');
+  const [newMemory, setNewMemory] = useState({
+    category: 'fact',
+    key: '',
+    value: '',
+  });
 
   // Update clock every second
   useEffect(() => {
@@ -346,7 +502,6 @@ export function JarvisDashboard() {
   const searchesPerformed = searchResults.length;
 
   const recentNotifications = notifications.slice(0, 5);
-  const recentMemories = memories.slice(0, 5);
 
   const cpuUsage = systemData?.cpu?.usage ?? 0;
   const memPercentage = systemData?.memory?.percentage ?? 0;
@@ -360,11 +515,51 @@ export function JarvisDashboard() {
   const hostname = systemData?.hostname ?? '';
   const network = systemData?.network ?? [];
 
+  // ── Memory category counts ──
+  const categoryCounts = memories.reduce<Record<string, number>>((acc, m) => {
+    acc[m.category] = (acc[m.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  // ── Filtered memories ──
+  const filteredMemories = memories.filter((m) => {
+    const matchesCategory = memoryFilter === 'all' || m.category === memoryFilter;
+    const matchesSearch =
+      memorySearch === '' ||
+      m.key.toLowerCase().includes(memorySearch.toLowerCase()) ||
+      m.value.toLowerCase().includes(memorySearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const displayedMemories = filteredMemories.slice(0, 10);
+
   const handleQuickAction = useCallback(
     (panel: JarvisPanel) => {
       setActivePanel(panel);
     },
     [setActivePanel]
+  );
+
+  const handleAddMemory = useCallback(async () => {
+    if (!newMemory.key.trim() || !newMemory.value.trim()) return;
+    await addMemory({
+      category: newMemory.category,
+      key: newMemory.key.trim(),
+      value: newMemory.value.trim(),
+      source: 'user',
+    });
+    setNewMemory({ category: 'fact', key: '', value: '' });
+    setShowAddMemory(false);
+    // Also refresh insights
+    refreshInsights();
+  }, [newMemory, addMemory, refreshInsights]);
+
+  const handleDeleteMemory = useCallback(
+    async (id: string) => {
+      await removeMemory(id);
+      refreshInsights();
+    },
+    [removeMemory, refreshInsights]
   );
 
   return (
@@ -706,34 +901,188 @@ export function JarvisDashboard() {
             </div>
           </motion.div>
 
-          {/* Memory Section */}
+          {/* ─── Enhanced Memory Section ──────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
             className="jarvis-panel p-4"
           >
+            {/* Header with Add button */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Brain className="h-3 w-3" />
                 Memórias
               </h3>
-              {memories.length > 5 && (
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] text-jarvis-cyan/60">
-                  +{memories.length - 5} mais
+                  {memories.length} total
                 </span>
-              )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowAddMemory(!showAddMemory)}
+                  className="h-5 w-5 text-jarvis-cyan/50 hover:bg-jarvis-cyan/10 hover:text-jarvis-cyan"
+                >
+                  {showAddMemory ? (
+                    <X className="h-3 w-3" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
             </div>
-            {recentMemories.length > 0 ? (
-              <div className="divide-y divide-jarvis-border/30">
-                {recentMemories.map((memory) => (
-                  <MemoryItem key={memory.id} memory={memory} />
+
+            {/* Category counts */}
+            {Object.keys(categoryCounts).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {['preference', 'fact', 'routine', 'context', 'note'].map(
+                  (cat) => {
+                    const count = categoryCounts[cat] || 0;
+                    if (count === 0) return null;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() =>
+                          setMemoryFilter(memoryFilter === cat ? 'all' : cat)
+                        }
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] transition-colors cursor-pointer ${
+                          memoryFilter === cat
+                            ? CATEGORY_COLORS[cat] || 'bg-jarvis-cyan/10 text-jarvis-cyan border-jarvis-cyan/20'
+                            : 'border-jarvis-border/20 text-muted-foreground/50 hover:border-jarvis-cyan/30'
+                        }`}
+                      >
+                        <Filter className="h-2 w-2" />
+                        {cat} ({count})
+                      </button>
+                    );
+                  }
+                )}
+                {memoryFilter !== 'all' && (
+                  <button
+                    onClick={() => setMemoryFilter('all')}
+                    className="inline-flex items-center gap-1 rounded-full border border-jarvis-border/20 px-2 py-0.5 text-[9px] text-muted-foreground/50 hover:text-jarvis-cyan transition-colors cursor-pointer"
+                  >
+                    <X className="h-2 w-2" />
+                    Limpar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Search input */}
+            <div className="relative mb-3">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/40" />
+              <input
+                type="text"
+                placeholder="Buscar memórias..."
+                value={memorySearch}
+                onChange={(e) => setMemorySearch(e.target.value)}
+                className="w-full bg-jarvis-dark/50 border border-jarvis-border/20 rounded-md pl-7 pr-3 py-1.5 text-[11px] text-foreground/80 placeholder:text-muted-foreground/30 focus:outline-none focus:border-jarvis-cyan/30 transition-colors"
+              />
+            </div>
+
+            {/* Add Memory Form */}
+            <AnimatePresence>
+              {showAddMemory && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-3 overflow-hidden"
+                >
+                  <div className="bg-jarvis-dark/50 border border-jarvis-cyan/10 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={newMemory.category}
+                        onChange={(e) =>
+                          setNewMemory((prev) => ({
+                            ...prev,
+                            category: e.target.value,
+                          }))
+                        }
+                        className="bg-jarvis-dark border border-jarvis-border/20 rounded px-2 py-1 text-[10px] text-foreground/80 focus:outline-none focus:border-jarvis-cyan/30"
+                      >
+                        <option value="fact">Fato</option>
+                        <option value="preference">Preferência</option>
+                        <option value="routine">Rotina</option>
+                        <option value="context">Contexto</option>
+                        <option value="note">Nota</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Chave (ex: nome, comida_fav)"
+                        value={newMemory.key}
+                        onChange={(e) =>
+                          setNewMemory((prev) => ({
+                            ...prev,
+                            key: e.target.value,
+                          }))
+                        }
+                        className="flex-1 bg-jarvis-dark border border-jarvis-border/20 rounded px-2 py-1 text-[10px] text-foreground/80 placeholder:text-muted-foreground/30 focus:outline-none focus:border-jarvis-cyan/30"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Valor (ex: João, pizza)"
+                        value={newMemory.value}
+                        onChange={(e) =>
+                          setNewMemory((prev) => ({
+                            ...prev,
+                            value: e.target.value,
+                          }))
+                        }
+                        className="flex-1 bg-jarvis-dark border border-jarvis-border/20 rounded px-2 py-1 text-[10px] text-foreground/80 placeholder:text-muted-foreground/30 focus:outline-none focus:border-jarvis-cyan/30"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddMemory();
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleAddMemory}
+                        disabled={
+                          !newMemory.key.trim() || !newMemory.value.trim()
+                        }
+                        className="h-6 text-[10px] bg-jarvis-cyan/20 text-jarvis-cyan hover:bg-jarvis-cyan/30 border-jarvis-cyan/20"
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Memory list */}
+            {displayedMemories.length > 0 ? (
+              <div className="divide-y divide-jarvis-border/30 max-h-64 overflow-y-auto jarvis-scrollbar">
+                {displayedMemories.map((memory) => (
+                  <MemoryItem
+                    key={memory.id}
+                    memory={memory}
+                    onDelete={handleDeleteMemory}
+                  />
                 ))}
               </div>
             ) : (
               <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground/50">
                 <Brain className="h-4 w-4" />
-                <p className="text-xs">Nenhuma memória armazenada</p>
+                <p className="text-xs">
+                  {memoryFilter !== 'all' || memorySearch
+                    ? 'Nenhuma memória encontrada'
+                    : 'Nenhuma memória armazenada'}
+                </p>
+              </div>
+            )}
+
+            {/* Insights summary */}
+            {insights && insights.totalMemories > 0 && (
+              <div className="mt-3 pt-2 border-t border-jarvis-border/20">
+                <p className="text-[9px] text-muted-foreground/40 leading-relaxed">
+                  {insights.summary.substring(0, 150)}
+                  {insights.summary.length > 150 ? '...' : ''}
+                </p>
               </div>
             )}
           </motion.div>
@@ -776,7 +1125,7 @@ export function JarvisDashboard() {
           {/* Footer info */}
           <div className="flex items-center justify-center gap-2 py-2 text-[10px] text-muted-foreground/40">
             <Clock className="h-3 w-3" />
-            <span>JARVIS AI Assistant v2.0</span>
+            <span>JARVIS AI Assistant v3.0</span>
           </div>
         </div>
       </ScrollArea>

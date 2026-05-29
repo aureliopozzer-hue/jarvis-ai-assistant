@@ -9,8 +9,12 @@ interface UseWakeWordOptions {
   wakeWord?: string;
   /** Callback when wake word is detected */
   onWake?: () => void;
+  /** Callback when a command is captured after the wake word */
+  onCommand?: (command: string) => void;
   /** Whether to auto-start listening on mount (default: false) */
   autoStart?: boolean;
+  /** Timeout in ms before going back to idle after wake word without command (default: 5000) */
+  commandTimeout?: number;
 }
 
 interface UseWakeWordReturn {
@@ -20,6 +24,8 @@ interface UseWakeWordReturn {
   resetWake: () => void;
   transcript: string;
   isSupported: boolean;
+  /** The text spoken AFTER the wake word (the command) */
+  commandText: string;
 }
 
 /** Check if SpeechRecognition is supported (SSR-safe) */
@@ -29,26 +35,49 @@ function getIsSupported(): boolean {
 }
 
 export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn {
-  const { wakeWord = 'jarvis', onWake, autoStart = false } = options;
+  const {
+    wakeWord = 'jarvis',
+    onWake,
+    onCommand,
+    autoStart = false,
+    commandTimeout = 5000,
+  } = options;
 
   const [state, setState] = useState<WakeWordState>('idle');
   const [transcript, setTranscript] = useState('');
+  const [commandText, setCommandText] = useState('');
   const [isSupported] = useState(getIsSupported);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const onWakeRef = useRef(onWake);
+  const onCommandRef = useRef(onCommand);
   const stateRef = useRef(state);
+  const commandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commandAccumulatorRef = useRef('');
 
-  // Keep onWake ref in sync (inside effect to avoid render-time ref write)
+  // Keep refs in sync (inside effect to avoid render-time ref write)
   useEffect(() => {
     onWakeRef.current = onWake;
   }, [onWake]);
 
   useEffect(() => {
+    onCommandRef.current = onCommand;
+  }, [onCommand]);
+
+  useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
+  // Clear command timeout
+  const clearCommandTimeout = useCallback(() => {
+    if (commandTimeoutRef.current) {
+      clearTimeout(commandTimeoutRef.current);
+      commandTimeoutRef.current = null;
+    }
+  }, []);
+
   const stopListening = useCallback(() => {
+    clearCommandTimeout();
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -57,7 +86,9 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
       }
     }
     setState('idle');
-  }, []);
+    setCommandText('');
+    commandAccumulatorRef.current = '';
+  }, [clearCommandTimeout]);
 
   const startListening = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -82,7 +113,15 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+
+    // Try Portuguese first, fall back to English
+    try {
+      // Test if pt-BR is available
+      const testLang = 'pt-BR';
+      recognition.lang = testLang;
+    } catch {
+      recognition.lang = 'en-US';
+    }
 
     recognition.onstart = () => {
       setState('listening');
@@ -95,14 +134,63 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
       }
       setTranscript(fullTranscript);
 
+      const currentState = stateRef.current;
+
+      // If already awake, accumulate the command text
+      if (currentState === 'awake') {
+        commandAccumulatorRef.current = fullTranscript;
+        setCommandText(fullTranscript.trim());
+
+        // Check if the result is final (user finished speaking the command)
+        let hasFinal = false;
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            hasFinal = true;
+          }
+        }
+
+        if (hasFinal && fullTranscript.trim().length > 0) {
+          // Command captured, clear the timeout
+          clearCommandTimeout();
+
+          // Process the command
+          setState('processing');
+          onCommandRef.current?.(fullTranscript.trim());
+        }
+        return;
+      }
+
       // Check for wake word (case insensitive)
       if (
         fullTranscript.toLowerCase().includes(wakeWord.toLowerCase()) &&
-        stateRef.current !== 'awake' &&
-        stateRef.current !== 'processing'
+        currentState !== 'awake' &&
+        currentState !== 'processing'
       ) {
+        // Clear any previous command
+        commandAccumulatorRef.current = '';
+        setCommandText('');
+
         setState('awake');
         onWakeRef.current?.();
+
+        // Start command timeout
+        clearCommandTimeout();
+        commandTimeoutRef.current = setTimeout(() => {
+          // No command spoken after wake word, go back to listening
+          if (stateRef.current === 'awake') {
+            setCommandText('');
+            commandAccumulatorRef.current = '';
+            setState('listening');
+          }
+        }, commandTimeout);
+
+        // Extract any text after the wake word as potential command start
+        const wakeIdx = fullTranscript.toLowerCase().indexOf(wakeWord.toLowerCase());
+        const afterWake = fullTranscript.substring(wakeIdx + wakeWord.length).trim();
+        if (afterWake.length > 0) {
+          commandAccumulatorRef.current = afterWake;
+          setCommandText(afterWake);
+        }
       }
     };
 
@@ -122,8 +210,9 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
     };
 
     recognition.onend = () => {
-      // Auto-restart if we're still in listening state (not manually stopped)
-      if (stateRef.current === 'listening') {
+      // Auto-restart if we're still in listening or awake state (not manually stopped)
+      const currentState = stateRef.current;
+      if (currentState === 'listening' || currentState === 'awake') {
         try {
           recognition.start();
         } catch {
@@ -141,12 +230,15 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
       console.warn('[WakeWord] Failed to start recognition:', error);
       setState('idle');
     }
-  }, [wakeWord]);
+  }, [wakeWord, commandTimeout, clearCommandTimeout]);
 
   const resetWake = useCallback(() => {
+    clearCommandTimeout();
+    setCommandText('');
+    commandAccumulatorRef.current = '';
     setState('listening');
     setTranscript('');
-  }, []);
+  }, [clearCommandTimeout]);
 
   // Auto-start if configured — defer with requestAnimationFrame to avoid
   // calling setState synchronously within the effect body
@@ -162,6 +254,7 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      clearCommandTimeout();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -171,7 +264,7 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
         recognitionRef.current = null;
       }
     };
-  }, []);
+  }, [clearCommandTimeout]);
 
   return {
     state,
@@ -180,5 +273,6 @@ export function useWakeWord(options: UseWakeWordOptions = {}): UseWakeWordReturn
     resetWake,
     transcript,
     isSupported,
+    commandText,
   };
 }

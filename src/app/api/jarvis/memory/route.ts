@@ -8,6 +8,91 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const type = searchParams.get('type');
 
+    // If type=insights, return aggregated memory insights
+    if (type === 'insights') {
+      // Count memories by category
+      const categoryCounts = await db.memory.groupBy({
+        by: ['category'],
+        _count: { category: true },
+      });
+
+      const countsByCategory: Record<string, number> = {};
+      for (const row of categoryCounts) {
+        countsByCategory[row.category] = row._count.category;
+      }
+
+      // Total memory count
+      const totalMemories = await db.memory.count();
+
+      // Important memories
+      const importantMemories = await db.memory.findMany({
+        where: { important: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+      });
+
+      // Recently added memories (last 24h)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentMemories = await db.memory.findMany({
+        where: {
+          createdAt: { gte: twentyFourHoursAgo },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      // Build summary of what JARVIS knows about the user
+      const factMemories = await db.memory.findMany({
+        where: { category: 'fact' },
+        take: 5,
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const preferenceMemories = await db.memory.findMany({
+        where: { category: 'preference' },
+        take: 5,
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const routineMemories = await db.memory.findMany({
+        where: { category: 'routine' },
+        take: 5,
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const summaryParts: string[] = [];
+      if (factMemories.length > 0) {
+        summaryParts.push(
+          `Fatos: ${factMemories.map((m) => m.value).join(', ')}`
+        );
+      }
+      if (preferenceMemories.length > 0) {
+        summaryParts.push(
+          `Preferências: ${preferenceMemories.map((m) => m.value).join(', ')}`
+        );
+      }
+      if (routineMemories.length > 0) {
+        summaryParts.push(
+          `Rotinas: ${routineMemories.map((m) => m.value).join(', ')}`
+        );
+      }
+
+      const factsCount = await db.userFact.count();
+
+      return NextResponse.json({
+        insights: {
+          totalMemories,
+          countsByCategory,
+          importantMemories,
+          recentMemories,
+          summary: summaryParts.length > 0
+            ? summaryParts.join(' | ')
+            : 'Nenhuma informação armazenada ainda.',
+          factsCount,
+        },
+      });
+    }
+
     // If type=facts, return UserFact records instead
     if (type === 'facts') {
       const facts = await db.userFact.findMany({
@@ -118,11 +203,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Delete a memory by id
+// DELETE - Delete a memory by id (supports both query param and body)
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id } = body as { id: string };
+    // Try query param first, then fall back to body
+    const { searchParams } = new URL(request.url);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      try {
+        const body = await request.json();
+        id = body.id;
+      } catch {
+        // No body or invalid JSON
+      }
+    }
 
     if (!id) {
       return NextResponse.json(
