@@ -104,6 +104,31 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
     description: 'List and search user files.',
     paramSchema: { type: 'string (optional) - "document", "image", "code", "spreadsheet", or "all" (default: "all")', search: 'string (optional) - search term for file content' },
   },
+  {
+    name: 'finance_briefing',
+    description: 'Gera um panorama diário completo do mercado financeiro com análise de índices, notícias e recomendações.',
+    paramSchema: {},
+  },
+  {
+    name: 'finance_quote',
+    description: 'Obtém cotação em tempo real de uma ação ou índice.',
+    paramSchema: { ticker: 'string (required) - Símbolo da ação (ex: AAPL, PETR4.SA, ^BVSP)' },
+  },
+  {
+    name: 'finance_news',
+    description: 'Obtém notícias do mercado financeiro, opcionalmente filtradas por ação.',
+    paramSchema: { ticker: 'string (optional) - Símbolo da ação para filtrar notícias' },
+  },
+  {
+    name: 'finance_search',
+    description: 'Busca ações por nome da empresa ou símbolo.',
+    paramSchema: { query: 'string (required) - Nome da empresa ou símbolo para buscar' },
+  },
+  {
+    name: 'finance_analysis',
+    description: 'Análise detalhada de uma ação com dados financeiros, estatísticas e earnings.',
+    paramSchema: { ticker: 'string (required) - Símbolo da ação' },
+  },
 ];
 
 // ─── Tool Calling Prompt Section ────────────────────────────────────
@@ -128,6 +153,11 @@ Available tools:
 - calendar_check: Check calendar events. Params: {"days": 7}
 - calendar_add: Add a calendar event. Params: {"title": "event title", "startTime": "ISO string", "endTime": "ISO string", "description": "optional", "location": "optional"}
 - file_list: List and search files. Params: {"type": "document|image|code|spreadsheet|all", "search": "optional search term"}
+- finance_briefing: Daily market briefing. Params: {}
+- finance_quote: Get stock/index quote. Params: {"ticker": "AAPL|PETR4.SA|^BVSP"}
+- finance_news: Get financial news. Params: {"ticker": "optional ticker filter"}
+- finance_search: Search stocks. Params: {"query": "company name or symbol"}
+- finance_analysis: Detailed stock analysis. Params: {"ticker": "stock symbol"}
 
 You can use multiple tools in a single response. After using tools, I will provide the results and you can generate a final response.
 
@@ -149,6 +179,11 @@ IMPORTANT rules for tool usage:
 - When the user asks about schedule or calendar, use calendar_check.
 - When the user asks to schedule something, use calendar_add.
 - When the user asks about files, use file_list.
+- When the user asks about market overview, use finance_briefing.
+- When the user asks about a stock quote, use finance_quote.
+- When the user asks about financial news, use finance_news.
+- When the user asks to search for a stock, use finance_search.
+- When the user asks to analyze a stock, use finance_analysis.
 - Always briefly mention what tool you're using before the tool call (e.g., "Let me search for that..." then call the tool).
 - After receiving tool results, incorporate them naturally into your response.`;
 
@@ -813,6 +848,175 @@ async function executeCalendarAdd(params: Record<string, unknown>): Promise<Tool
   }
 }
 
+// ─── Finance Tool Executors ─────────────────────────────────────────
+
+const GATEWAY_URL = 'https://internal-api.z.ai';
+const API_PREFIX = '/external/finance';
+
+async function financeFetch(endpoint: string) {
+  const url = `${GATEWAY_URL}${API_PREFIX}${endpoint}`;
+  const response = await fetch(url, {
+    headers: { 'X-Z-AI-From': 'Z' },
+  });
+  if (!response.ok) {
+    throw new Error(`Finance API error: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function executeFinanceBriefing(): Promise<ToolResult> {
+  try {
+    // 1. Fetch major indices snapshots
+    const indicesTickers = '^GSPC,^DJI,^IXIC,^BVSP';
+    let indicesData: unknown = null;
+    try {
+      indicesData = await financeFetch(`/snapshot?ticker=${encodeURIComponent(indicesTickers)}`);
+    } catch (err) {
+      console.error('[TOOL:finance_briefing] Failed to fetch indices:', err);
+    }
+
+    // 2. Fetch market news
+    let newsData: unknown[] = [];
+    try {
+      const newsResult = await financeFetch('/news');
+      newsData = Array.isArray(newsResult) ? newsResult : [];
+    } catch (err) {
+      console.error('[TOOL:finance_briefing] Failed to fetch news:', err);
+    }
+
+    // 3. Use ZAI to generate a Portuguese briefing
+    try {
+      const zai = await getZAI();
+      const briefingPrompt = `Você é J.A.R.V.I.S. Gerando briefing diário do mercado financeiro. Dados atuais:
+
+Índices: ${JSON.stringify(indicesData)}
+Notícias: ${JSON.stringify(newsData.slice(0, 5))}
+
+Gere um briefing completo em português brasileiro com:
+1. Panorama geral do mercado (alta/baixa/volatilidade)
+2. Principais índices e suas variações
+3. Destaque de 3 notícias mais relevantes
+4. Recomendação geral (não é conselho financeiro)
+5. Ações brasileiras se houver dados do Bovespa
+
+Use um tom profissional mas acessível, como um assistente financeiro de elite.`;
+
+      const completion = await zai.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'Você é um assistente financeiro JARVIS que gera briefings diários de mercado.' },
+          { role: 'user', content: briefingPrompt },
+        ],
+        thinking: { type: 'disabled' },
+      });
+
+      const briefingText = completion.choices[0]?.message?.content || 'Não foi possível gerar o briefing no momento.';
+
+      return {
+        success: true,
+        data: {
+          briefing: briefingText,
+          indices: indicesData,
+          news: newsData.slice(0, 10),
+        },
+      };
+    } catch (err) {
+      console.error('[TOOL:finance_briefing] Failed to generate briefing:', err);
+      return {
+        success: true,
+        data: {
+          briefing: 'Erro ao gerar briefing com IA. Dados brutos disponíveis.',
+          indices: indicesData,
+          news: newsData.slice(0, 10),
+        },
+      };
+    }
+  } catch (error) {
+    console.error('[TOOL:finance_briefing] Error:', error);
+    return { success: false, data: null, error: 'Failed to generate market briefing' };
+  }
+}
+
+async function executeFinanceQuote(params: Record<string, unknown>): Promise<ToolResult> {
+  const ticker = String(params.ticker || '');
+  if (!ticker) {
+    return { success: false, data: null, error: 'Ticker parameter is required' };
+  }
+
+  try {
+    const data = await financeFetch(`/quote?ticker=${encodeURIComponent(ticker)}&type=STOCKS`);
+    return { success: true, data: { quote: data } };
+  } catch (error) {
+    console.error('[TOOL:finance_quote] Error:', error);
+    return { success: false, data: null, error: 'Failed to get stock quote' };
+  }
+}
+
+async function executeFinanceNews(params: Record<string, unknown>): Promise<ToolResult> {
+  const ticker = params.ticker ? String(params.ticker) : undefined;
+
+  try {
+    let endpoint = '/news';
+    if (ticker) {
+      endpoint += `?ticker=${encodeURIComponent(ticker)}`;
+    }
+    const data = await financeFetch(endpoint);
+    return { success: true, data: { news: data } };
+  } catch (error) {
+    console.error('[TOOL:finance_news] Error:', error);
+    return { success: false, data: null, error: 'Failed to get financial news' };
+  }
+}
+
+async function executeFinanceSearch(params: Record<string, unknown>): Promise<ToolResult> {
+  const query = String(params.query || '');
+  if (!query) {
+    return { success: false, data: null, error: 'Query parameter is required' };
+  }
+
+  try {
+    const data = await financeFetch(`/search?query=${encodeURIComponent(query)}`);
+    return { success: true, data: { results: data } };
+  } catch (error) {
+    console.error('[TOOL:finance_search] Error:', error);
+    return { success: false, data: null, error: 'Failed to search stocks' };
+  }
+}
+
+async function executeFinanceAnalysis(params: Record<string, unknown>): Promise<ToolResult> {
+  const ticker = String(params.ticker || '');
+  if (!ticker) {
+    return { success: false, data: null, error: 'Ticker parameter is required' };
+  }
+
+  try {
+    // Fetch multiple data points for comprehensive analysis
+    const [quoteData, profileData, financialsData, statisticsData, earningsData] = await Promise.allSettled([
+      financeFetch(`/quote?ticker=${encodeURIComponent(ticker)}&type=STOCKS`),
+      financeFetch(`/profile?ticker=${encodeURIComponent(ticker)}`),
+      financeFetch(`/financials?ticker=${encodeURIComponent(ticker)}`),
+      financeFetch(`/statistics?ticker=${encodeURIComponent(ticker)}`),
+      financeFetch(`/earnings?ticker=${encodeURIComponent(ticker)}`),
+    ]);
+
+    const extractResult = (result: PromiseSettledResult<unknown>) =>
+      result.status === 'fulfilled' ? result.value : null;
+
+    return {
+      success: true,
+      data: {
+        quote: extractResult(quoteData),
+        profile: extractResult(profileData),
+        financials: extractResult(financialsData),
+        statistics: extractResult(statisticsData),
+        earnings: extractResult(earningsData),
+      },
+    };
+  } catch (error) {
+    console.error('[TOOL:finance_analysis] Error:', error);
+    return { success: false, data: null, error: 'Failed to analyze stock' };
+  }
+}
+
 // ─── File Tool Executors ────────────────────────────────────────────
 
 async function executeFileList(params: Record<string, unknown>): Promise<ToolResult> {
@@ -898,6 +1102,16 @@ export async function executeTool(
       return executeCalendarAdd(params);
     case 'file_list':
       return executeFileList(params);
+    case 'finance_briefing':
+      return executeFinanceBriefing();
+    case 'finance_quote':
+      return executeFinanceQuote(params);
+    case 'finance_news':
+      return executeFinanceNews(params);
+    case 'finance_search':
+      return executeFinanceSearch(params);
+    case 'finance_analysis':
+      return executeFinanceAnalysis(params);
     default:
       return {
         success: false,

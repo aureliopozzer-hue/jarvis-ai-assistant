@@ -20,6 +20,7 @@ import {
   Calendar,
   FolderOpen,
   CreditCard,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ import { JarvisCampaigns } from '@/components/jarvis/jarvis-campaigns';
 import { JarvisCalendar } from '@/components/jarvis/jarvis-calendar';
 import { JarvisFiles } from '@/components/jarvis/jarvis-files';
 import { JarvisStripe } from '@/components/jarvis/jarvis-stripe';
+import { JarvisFinance } from '@/components/jarvis/jarvis-finance';
 import { useJarvisStore, type Notification } from '@/lib/jarvis-store';
 import { useWakeWord } from '@/hooks/use-wake-word';
 import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
@@ -176,7 +178,7 @@ function getGreeting(): string {
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function Home() {
-  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig } = useJarvisStore();
+  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig, loadFinanceQuotes, loadFinanceNews, loadFinanceWatchlist, loadFinanceAlerts } = useJarvisStore();
 
   // Sound effects hook
   const { playActivation, playDeactivation, playNotification, playSuccess, playWakeWord, playMessageSent } = useSoundEffects();
@@ -369,10 +371,13 @@ export default function Home() {
         case 'campaigns': loadCampaigns(); break;
         case 'calendar': loadCalendarEvents(); break;
         case 'files': loadFiles(); break;
-        case 'stripe': loadStripeConfig(); break;
+        case 'stripe':
+          loadStripeConfig(); break;
+        case 'finance':
+          loadFinanceQuotes(); loadFinanceNews(); loadFinanceWatchlist(); loadFinanceAlerts(); break;
       }
     }
-  }, [activePanel, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig]);
+  }, [activePanel, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig, loadFinanceQuotes, loadFinanceNews, loadFinanceWatchlist, loadFinanceAlerts]);
 
   const renderPanel = () => {
     switch (activePanel) {
@@ -396,6 +401,8 @@ export default function Home() {
         return <JarvisFiles />;
       case 'stripe':
         return <JarvisStripe />;
+      case 'finance':
+        return <JarvisFinance />;
     }
   };
 
@@ -455,8 +462,9 @@ export default function Home() {
             {activePanel === 'calendar' && <Calendar className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'files' && <FolderOpen className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'stripe' && <CreditCard className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'finance' && <BarChart3 className="h-4 w-4 text-jarvis-cyan/60" />}
             <span className="text-[10px] font-semibold tracking-[0.2em] text-jarvis-cyan/50">
-              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : activePanel === 'dashboard' ? 'PAINEL' : activePanel === 'email' ? 'EMAIL' : activePanel === 'social' ? 'SOCIAL' : activePanel === 'campaigns' ? 'CAMPANHAS' : activePanel === 'calendar' ? 'CALENDÁRIO' : activePanel === 'files' ? 'ARQUIVOS' : 'PAGAMENTOS'}
+              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : activePanel === 'dashboard' ? 'PAINEL' : activePanel === 'email' ? 'EMAIL' : activePanel === 'social' ? 'SOCIAL' : activePanel === 'campaigns' ? 'CAMPANHAS' : activePanel === 'calendar' ? 'CALENDÁRIO' : activePanel === 'files' ? 'ARQUIVOS' : activePanel === 'finance' ? 'FINANÇAS' : 'PAGAMENTOS'}
             </span>
             {wakeWordState === 'awake' && commandText && (
               <span className="ml-2 text-[10px] text-jarvis-cyan animate-pulse">

@@ -636,6 +636,7 @@ export function JarvisDashboard() {
                 { icon: '📅', name: 'Calendário', status: 'configurar', desc: 'Agenda e lembretes' },
                 { icon: '📁', name: 'Arquivos', status: 'configurar', desc: 'Gestão de documentos' },
                 { icon: '💳', name: 'Pagamentos', status: 'configurar', desc: 'Stripe e assinaturas' },
+                { icon: '📊', name: 'Mercado Financeiro', status: 'online', desc: 'Cotações, análise e alertas' },
                 { icon: '🔊', name: 'Voz', status: 'online', desc: 'TTS e reconhecimento' },
                 { icon: '💾', name: 'Memória', status: 'online', desc: 'Fatos e preferências' },
                 { icon: '🛡️', name: 'Monitoramento', status: 'online', desc: 'CPU, RAM, disco' },

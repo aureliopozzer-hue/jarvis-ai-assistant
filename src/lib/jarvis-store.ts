@@ -36,7 +36,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard' | 'email' | 'social' | 'campaigns' | 'calendar' | 'files' | 'stripe';
+export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard' | 'email' | 'social' | 'campaigns' | 'calendar' | 'files' | 'stripe' | 'finance';
 export type JarvisPersonality = 'professional' | 'friendly' | 'witty';
 export type JarvisLanguage = 'pt-BR' | 'en-US';
 
@@ -147,6 +147,59 @@ export interface Subscription {
   cancelAtPeriodEnd: boolean;
 }
 
+export interface FinanceQuote {
+  ticker: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  currency: string;
+  marketCap?: number;
+  volume?: number;
+  pe?: number;
+  eps?: number;
+  week52High?: number;
+  week52Low?: number;
+  quantity?: number;
+  avgCost?: number;
+}
+
+export interface FinanceNewsItem {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  snippet: string;
+  tickers: string[];
+  publishedAt: string;
+}
+
+export interface FinanceWatchlistItem {
+  id: string;
+  ticker: string;
+  name: string;
+  type: string;
+  quantity: number | null;
+  avgPrice: number | null;
+  notes: string | null;
+}
+
+export interface FinanceAlert {
+  id: string;
+  ticker: string;
+  type: string;
+  value: number;
+  isActive: boolean;
+  triggered: boolean;
+  createdAt: string;
+}
+
+export interface FinanceBriefing {
+  text: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  generatedAt: string;
+}
+
 export interface JarvisSettings {
   voiceRate: number;
   voicePitch: number;
@@ -235,6 +288,16 @@ export interface JarvisState {
   subscription: Subscription | null;
   subscriptions: Subscription[];
   isLoadingStripe: boolean;
+
+  // Finance
+  financeQuotes: FinanceQuote[];
+  financeNews: FinanceNewsItem[];
+  financeWatchlist: FinanceWatchlistItem[];
+  financeAlerts: FinanceAlert[];
+  financeBriefing: FinanceBriefing | null;
+  isLoadingFinance: boolean;
+  financeSearchResults: FinanceQuote[];
+  financeSelectedStock: FinanceQuote | null;
 
   // UI
   activePanel: JarvisPanel;
@@ -341,6 +404,21 @@ export interface JarvisActions {
   // Stripe Actions
   loadStripeConfig: () => Promise<void>;
   configureStripe: (publicKey: string, secretKey: string, mode: string) => Promise<void>;
+
+  // Finance Actions
+  loadFinanceQuotes: (tickers?: string[]) => Promise<void>;
+  loadFinanceNews: (ticker?: string) => Promise<void>;
+  loadFinanceWatchlist: () => Promise<void>;
+  addToWatchlist: (ticker: string, name: string, quantity?: number, avgCost?: number) => Promise<void>;
+  removeFromWatchlist: (id: string) => Promise<void>;
+  loadFinanceAlerts: () => Promise<void>;
+  createFinanceAlert: (ticker: string, type: 'above' | 'below' | 'change_percent', value: number) => Promise<void>;
+  deleteFinanceAlert: (id: string) => Promise<void>;
+  toggleFinanceAlert: (id: string, active: boolean) => Promise<void>;
+  loadFinanceBriefing: () => Promise<void>;
+  searchFinanceStocks: (query: string) => Promise<void>;
+  selectFinanceStock: (ticker: string) => Promise<void>;
+  clearFinanceSearch: () => void;
 
   // UI Actions
   setActivePanel: (panel: JarvisPanel) => void;
@@ -474,6 +552,16 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   subscription: null,
   subscriptions: [],
   isLoadingStripe: false,
+
+  // Finance
+  financeQuotes: [],
+  financeNews: [],
+  financeWatchlist: [],
+  financeAlerts: [],
+  financeBriefing: null,
+  isLoadingFinance: false,
+  financeSearchResults: [],
+  financeSelectedStock: null,
 
   // UI
   activePanel: 'chat',
@@ -1164,6 +1252,167 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
     } finally {
       set({ isLoadingStripe: false });
     }
+  },
+
+  // ── Finance Actions ───────────────────────────────────────────────
+
+  loadFinanceQuotes: async (tickers?: string[]) => {
+    set({ isLoadingFinance: true });
+    try {
+      if (tickers?.length) {
+        const tickerParam = tickers.join(',');
+        const result = await apiFetch<{ snapshot: FinanceQuote[] }>(`/api/jarvis/finance?action=snapshot&ticker=${encodeURIComponent(tickerParam)}`);
+        if (result?.snapshot) {
+          set({ financeQuotes: result.snapshot });
+        }
+      } else {
+        // Load from watchlist tickers
+        const wl = get().financeWatchlist;
+        if (wl.length > 0) {
+          const tickerParam = wl.map((w) => w.ticker).join(',');
+          const result = await apiFetch<{ snapshot: FinanceQuote[] }>(`/api/jarvis/finance?action=snapshot&ticker=${encodeURIComponent(tickerParam)}`);
+          if (result?.snapshot) {
+            set({ financeQuotes: result.snapshot });
+          }
+        }
+      }
+    } catch {
+      console.error('Failed to load finance quotes');
+    } finally {
+      set({ isLoadingFinance: false });
+    }
+  },
+
+  loadFinanceNews: async (ticker?: string) => {
+    try {
+      const params = new URLSearchParams();
+      params.set('action', 'news');
+      if (ticker) params.set('ticker', ticker);
+      const result = await apiFetch<{ news: FinanceNewsItem[] }>(`/api/jarvis/finance?${params.toString()}`);
+      if (result?.news) {
+        set({ financeNews: result.news });
+      }
+    } catch {
+      console.error('Failed to load finance news');
+    }
+  },
+
+  loadFinanceWatchlist: async () => {
+    try {
+      const result = await apiFetch<{ watchlist: FinanceWatchlistItem[] }>('/api/jarvis/finance/watchlist');
+      if (result?.watchlist) {
+        set({ financeWatchlist: result.watchlist });
+      }
+    } catch {
+      console.error('Failed to load finance watchlist');
+    }
+  },
+
+  addToWatchlist: async (ticker: string, name: string, quantity?: number, avgCost?: number) => {
+    try {
+      const result = await apiFetch<{ item: FinanceWatchlistItem }>('/api/jarvis/finance/watchlist', {
+        method: 'POST',
+        body: JSON.stringify({ ticker, name, quantity, avgPrice: avgCost }),
+      });
+      if (result?.item) {
+        set((s) => ({ financeWatchlist: [...s.financeWatchlist, result.item] }));
+      }
+    } catch {
+      console.error('Failed to add to watchlist');
+    }
+  },
+
+  removeFromWatchlist: async (id: string) => {
+    set((s) => ({ financeWatchlist: s.financeWatchlist.filter((w) => w.id !== id) }));
+    await apiFetch(`/api/jarvis/finance/watchlist?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  loadFinanceAlerts: async () => {
+    try {
+      const result = await apiFetch<{ alerts: FinanceAlert[] }>('/api/jarvis/finance/alerts');
+      if (result?.alerts) {
+        set({ financeAlerts: result.alerts });
+      }
+    } catch {
+      console.error('Failed to load finance alerts');
+    }
+  },
+
+  createFinanceAlert: async (ticker: string, type: 'above' | 'below' | 'change_percent', value: number) => {
+    try {
+      const result = await apiFetch<{ alert: FinanceAlert }>('/api/jarvis/finance/alerts', {
+        method: 'POST',
+        body: JSON.stringify({ ticker, type, value }),
+      });
+      if (result?.alert) {
+        set((s) => ({ financeAlerts: [...s.financeAlerts, result.alert] }));
+      }
+    } catch {
+      console.error('Failed to create finance alert');
+    }
+  },
+
+  deleteFinanceAlert: async (id: string) => {
+    set((s) => ({ financeAlerts: s.financeAlerts.filter((a) => a.id !== id) }));
+    await apiFetch(`/api/jarvis/finance/alerts?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  toggleFinanceAlert: async (id: string, active: boolean) => {
+    set((s) => ({
+      financeAlerts: s.financeAlerts.map((a) => a.id === id ? { ...a, isActive: active } : a),
+    }));
+    await apiFetch('/api/jarvis/finance/alerts', {
+      method: 'PUT',
+      body: JSON.stringify({ id, isActive: active }),
+    });
+  },
+
+  loadFinanceBriefing: async () => {
+    set({ isLoadingFinance: true });
+    try {
+      const result = await apiFetch<{ briefing: { text: string; sentiment: string; generatedAt: string }; indices: unknown; news: unknown[] }>('/api/jarvis/finance?action=briefing');
+      if (result?.briefing) {
+        set({ financeBriefing: { text: result.briefing.text, sentiment: (result.briefing.sentiment as 'positive' | 'negative' | 'neutral') || 'neutral', generatedAt: result.briefing.generatedAt } });
+      }
+    } catch {
+      console.error('Failed to load finance briefing');
+    } finally {
+      set({ isLoadingFinance: false });
+    }
+  },
+
+  searchFinanceStocks: async (query: string) => {
+    if (!query.trim()) {
+      set({ financeSearchResults: [] });
+      return;
+    }
+    try {
+      const result = await apiFetch<{ results: FinanceQuote[] }>(`/api/jarvis/finance?action=search&query=${encodeURIComponent(query)}`);
+      if (result?.results) {
+        set({ financeSearchResults: result.results });
+      }
+    } catch {
+      console.error('Failed to search stocks');
+    }
+  },
+
+  selectFinanceStock: async (ticker: string) => {
+    try {
+      const result = await apiFetch<{ quote: FinanceQuote }>(`/api/jarvis/finance?action=quote&ticker=${encodeURIComponent(ticker)}`);
+      if (result?.quote) {
+        set({ financeSelectedStock: result.quote });
+      }
+    } catch {
+      console.error('Failed to get stock quote');
+    }
+  },
+
+  clearFinanceSearch: () => {
+    set({ financeSearchResults: [], financeSelectedStock: null });
   },
 
   // ── UI Actions ──────────────────────────────────────────────────

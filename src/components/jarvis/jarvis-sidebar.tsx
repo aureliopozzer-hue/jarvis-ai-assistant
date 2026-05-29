@@ -19,6 +19,7 @@ import {
   Calendar,
   FolderOpen,
   CreditCard,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,6 +36,7 @@ const navItems: { panel: JarvisPanel; label: string; icon: React.ElementType }[]
   { panel: 'chat', label: 'Chat', icon: MessageSquare },
   { panel: 'vision', label: 'Visão', icon: Eye },
   { panel: 'search', label: 'Busca', icon: Search },
+  { panel: 'finance', label: 'Finanças', icon: BarChart3 },
   { panel: 'email', label: 'Email', icon: Mail },
   { panel: 'social', label: 'Social', icon: Share2 },
   { panel: 'campaigns', label: 'Campanhas', icon: Target },
