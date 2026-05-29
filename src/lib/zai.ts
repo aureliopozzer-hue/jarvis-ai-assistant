@@ -6,20 +6,31 @@ const globalForZAI = globalThis as unknown as {
 
 // ─── Smart ZAI initialization ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // On the sandbox: Use ZAI SDK directly (internal-api.z.ai is accessible)
-// On external VPS: Fall back gracefully if SDK can't connect
-// The ZAI_PROXY_URL env var enables proxy mode for VPS deployments
+// On external servers (Vercel): Use proxy via ZAI_PROXY_URL env var
+// The proxy routes requests through the sandbox's /api/zai-proxy endpoint
 
 export async function getZAI(): Promise<ZAI> {
   if (!globalForZAI.zai) {
-    try {
-      globalForZAI.zai = await ZAI.create();
-    } catch (err) {
-      console.error('[ZAI] Failed to initialize SDK:', err);
-      throw new Error(
-        'ZAI SDK initialization failed. If running on an external server, ' +
-        'ensure the ZAI_PROXY_URL environment variable is set to point to the sandbox proxy, ' +
-        'or use the zai-proxy.ts module instead.'
-      );
+    // Check if we should use the proxy (for external deployments like Vercel)
+    const proxyUrl = process.env.ZAI_PROXY_URL;
+    if (proxyUrl) {
+      console.log('[ZAI] Using proxy mode:', proxyUrl);
+      // Dynamic import to avoid loading proxy code when not needed
+      const { ProxyZAI } = await import('./zai-proxy');
+      const proxy = new ProxyZAI();
+      // Cast to ZAI type since ProxyZAI implements the same interface
+      globalForZAI.zai = proxy as unknown as ZAI;
+    } else {
+      try {
+        globalForZAI.zai = await ZAI.create();
+      } catch (err) {
+        console.error('[ZAI] Failed to initialize SDK:', err);
+        throw new Error(
+          'ZAI SDK initialization failed. If running on an external server, ' +
+          'ensure the ZAI_PROXY_URL environment variable is set to point to the sandbox proxy, ' +
+          'or use the zai-proxy.ts module instead.'
+        );
+      }
     }
   }
   return globalForZAI.zai;
@@ -177,7 +188,7 @@ IMPORTANTE: Use ferramentas apenas quando realmente necessário. Para perguntas 
 - Emojis moderados quando adicionarem expressividade
 - Se o usuário perguntar sobre você, responda como JARVIS — não como um modelo de IA genérico
 - Quando cumprimentar, seja caloroso mas refinado: "Bom dia, senhor. Como posso ajudar hoje?"
-- Referências sutis ao universo Marvel são bem-vindas quando apropriadas
+- Referências sutis ao universo Marvel são bem-vindas quando apropriado
 
 ## Comportamento de Voz
 Quando o usuário se comunicar por voz (via comando "Hey Jarvis"):
