@@ -1,42 +1,64 @@
 import { NextResponse } from 'next/server';
 import os from 'os';
 
-function calculateCpuUsage(): {
+interface CpuTimes {
+  idle: number;
+  total: number;
+}
+
+function getCpuTimes(): CpuTimes {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      total += (cpu.times as Record<string, number>)[type];
+    }
+    idle += cpu.times.idle;
+  }
+
+  return { idle, total };
+}
+
+function calculateRealtimeCpuUsage(): Promise<{
   usage: number;
   cores: number;
   model: string;
   speeds: number[];
-} {
+}> {
   const cpus = os.cpus();
   const cores = cpus.length;
 
   if (cores === 0) {
-    return { usage: 0, cores: 0, model: 'unknown', speeds: [] };
+    return Promise.resolve({ usage: 0, cores: 0, model: 'unknown', speeds: [] });
   }
 
   const model = cpus[0].model;
   const speeds = cpus.map((cpu) => cpu.speed);
 
-  // Calculate CPU usage from the times
-  let totalIdle = 0;
-  let totalTick = 0;
+  // Take two samples 1 second apart to compute real-time CPU usage
+  const sample1 = getCpuTimes();
 
-  for (const cpu of cpus) {
-    for (const type in cpu.times) {
-      totalTick += (cpu.times as Record<string, number>)[type];
-    }
-    totalIdle += cpu.times.idle;
-  }
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const sample2 = getCpuTimes();
 
-  const totalUsage = totalTick - totalIdle;
-  const usage = totalTick > 0 ? (totalUsage / totalTick) * 100 : 0;
+      const idleDiff = sample2.idle - sample1.idle;
+      const totalDiff = sample2.total - sample1.total;
 
-  return {
-    usage: Math.round(usage * 100) / 100,
-    cores,
-    model,
-    speeds,
-  };
+      const usage = totalDiff > 0
+        ? ((totalDiff - idleDiff) / totalDiff) * 100
+        : 0;
+
+      resolve({
+        usage: Math.round(usage * 100) / 100,
+        cores,
+        model,
+        speeds,
+      });
+    }, 1000);
+  });
 }
 
 function getMemoryInfo(): {
@@ -86,7 +108,7 @@ function getNetworkInfo(): Array<{
 
 export async function GET() {
   try {
-    const cpu = calculateCpuUsage();
+    const cpu = await calculateRealtimeCpuUsage();
     const memory = getMemoryInfo();
     const uptime = os.uptime();
     const loadAvg = os.loadavg();

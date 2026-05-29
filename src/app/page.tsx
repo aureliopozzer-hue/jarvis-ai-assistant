@@ -14,6 +14,12 @@ import {
   X,
   Trash2,
   Check,
+  Mail,
+  Share2,
+  Target,
+  Calendar,
+  FolderOpen,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +33,12 @@ import { JarvisVision } from '@/components/jarvis/jarvis-vision';
 import { JarvisSearch } from '@/components/jarvis/jarvis-search';
 import { JarvisDashboard } from '@/components/jarvis/jarvis-dashboard';
 import { JarvisAmbient } from '@/components/jarvis/jarvis-ambient';
+import { JarvisEmail } from '@/components/jarvis/jarvis-email';
+import { JarvisSocial } from '@/components/jarvis/jarvis-social';
+import { JarvisCampaigns } from '@/components/jarvis/jarvis-campaigns';
+import { JarvisCalendar } from '@/components/jarvis/jarvis-calendar';
+import { JarvisFiles } from '@/components/jarvis/jarvis-files';
+import { JarvisStripe } from '@/components/jarvis/jarvis-stripe';
 import { useJarvisStore, type Notification } from '@/lib/jarvis-store';
 import { useWakeWord } from '@/hooks/use-wake-word';
 import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
@@ -164,7 +176,7 @@ function getGreeting(): string {
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function Home() {
-  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode } = useJarvisStore();
+  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel, ambientMode, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig } = useJarvisStore();
 
   // Sound effects hook
   const { playActivation, playDeactivation, playNotification, playSuccess, playWakeWord, playMessageSent } = useSoundEffects();
@@ -347,6 +359,21 @@ export default function Home() {
     };
   }, []);
 
+  // Auto-load data when switching to panels for the first time
+  useEffect(() => {
+    const loadedPanels = useJarvisStore.getState().loadedPanels;
+    if (!loadedPanels.has(activePanel)) {
+      switch (activePanel) {
+        case 'email': loadEmails(); break;
+        case 'social': loadSocialData(); break;
+        case 'campaigns': loadCampaigns(); break;
+        case 'calendar': loadCalendarEvents(); break;
+        case 'files': loadFiles(); break;
+        case 'stripe': loadStripeConfig(); break;
+      }
+    }
+  }, [activePanel, loadEmails, loadSocialData, loadCampaigns, loadCalendarEvents, loadFiles, loadStripeConfig]);
+
   const renderPanel = () => {
     switch (activePanel) {
       case 'chat':
@@ -357,6 +384,18 @@ export default function Home() {
         return <JarvisSearch />;
       case 'dashboard':
         return <JarvisDashboard />;
+      case 'email':
+        return <JarvisEmail />;
+      case 'social':
+        return <JarvisSocial />;
+      case 'campaigns':
+        return <JarvisCampaigns />;
+      case 'calendar':
+        return <JarvisCalendar />;
+      case 'files':
+        return <JarvisFiles />;
+      case 'stripe':
+        return <JarvisStripe />;
     }
   };
 
@@ -410,8 +449,14 @@ export default function Home() {
             {activePanel === 'vision' && <Eye className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'search' && <Search className="h-4 w-4 text-jarvis-cyan/60" />}
             {activePanel === 'dashboard' && <LayoutDashboard className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'email' && <Mail className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'social' && <Share2 className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'campaigns' && <Target className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'calendar' && <Calendar className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'files' && <FolderOpen className="h-4 w-4 text-jarvis-cyan/60" />}
+            {activePanel === 'stripe' && <CreditCard className="h-4 w-4 text-jarvis-cyan/60" />}
             <span className="text-[10px] font-semibold tracking-[0.2em] text-jarvis-cyan/50">
-              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : 'PAINEL'}
+              {activePanel === 'chat' ? 'CONVERSA' : activePanel === 'vision' ? 'VISÃO' : activePanel === 'search' ? 'BUSCA' : activePanel === 'dashboard' ? 'PAINEL' : activePanel === 'email' ? 'EMAIL' : activePanel === 'social' ? 'SOCIAL' : activePanel === 'campaigns' ? 'CAMPANHAS' : activePanel === 'calendar' ? 'CALENDÁRIO' : activePanel === 'files' ? 'ARQUIVOS' : 'PAGAMENTOS'}
             </span>
             {wakeWordState === 'awake' && commandText && (
               <span className="ml-2 text-[10px] text-jarvis-cyan animate-pulse">

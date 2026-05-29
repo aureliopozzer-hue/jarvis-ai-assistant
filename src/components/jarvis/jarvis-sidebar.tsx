@@ -13,6 +13,12 @@ import {
   ChevronRight,
   Clock,
   MessageCircle,
+  Mail,
+  Share2,
+  Target,
+  Calendar,
+  FolderOpen,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,9 +33,15 @@ import { useJarvisStore, type JarvisPanel } from '@/lib/jarvis-store';
 
 const navItems: { panel: JarvisPanel; label: string; icon: React.ElementType }[] = [
   { panel: 'chat', label: 'Chat', icon: MessageSquare },
-  { panel: 'vision', label: 'Vision', icon: Eye },
-  { panel: 'search', label: 'Search', icon: Search },
-  { panel: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { panel: 'vision', label: 'Visão', icon: Eye },
+  { panel: 'search', label: 'Busca', icon: Search },
+  { panel: 'email', label: 'Email', icon: Mail },
+  { panel: 'social', label: 'Social', icon: Share2 },
+  { panel: 'campaigns', label: 'Campanhas', icon: Target },
+  { panel: 'calendar', label: 'Calendário', icon: Calendar },
+  { panel: 'files', label: 'Arquivos', icon: FolderOpen },
+  { panel: 'stripe', label: 'Pagamentos', icon: CreditCard },
+  { panel: 'dashboard', label: 'Painel', icon: LayoutDashboard },
 ];
 
 function formatTimeAgo(dateStr: string): string {
@@ -98,7 +110,8 @@ export function JarvisSidebar() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className={`${sidebarOpen ? 'px-2' : 'px-1.5'} space-y-0.5`}>
+        <ScrollArea className={`${sidebarOpen ? 'px-2' : 'px-1.5'} ${sidebarOpen ? 'max-h-64' : ''}`}>
+          <div className="space-y-0.5">
           {navItems.map(({ panel, label, icon: Icon }) => {
             const isActive = activePanel === panel;
 
@@ -150,6 +163,7 @@ export function JarvisSidebar() {
             );
           })}
         </div>
+        </ScrollArea>
 
         {/* Conversations Section */}
         <AnimatePresence>

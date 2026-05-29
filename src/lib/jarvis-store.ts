@@ -36,7 +36,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard';
+export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard' | 'email' | 'social' | 'campaigns' | 'calendar' | 'files' | 'stripe';
 export type JarvisPersonality = 'professional' | 'friendly' | 'witty';
 export type JarvisLanguage = 'pt-BR' | 'en-US';
 
@@ -49,6 +49,102 @@ export interface Memory {
   important: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EmailAccount {
+  id: string;
+  provider: string;
+  email: string;
+  isActive: boolean;
+  lastSync: string | null;
+}
+
+export interface Email {
+  id: string;
+  accountId: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  snippet: string;
+  isRead: boolean;
+  isStarred: boolean;
+  labels: string[];
+  receivedAt: string;
+}
+
+export interface SocialAccount {
+  id: string;
+  platform: string;
+  username: string;
+  isActive: boolean;
+  lastSync: string | null;
+}
+
+export interface SocialPost {
+  id: string;
+  accountId: string;
+  content: string;
+  mediaUrls: string[];
+  likes: number;
+  comments: number;
+  shares: number;
+  postedAt: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  budget: number;
+  spent: number;
+  metrics: Record<string, number>;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startTime: string;
+  endTime: string;
+  recurrence: string | null;
+  reminder: number | null;
+  source: string;
+}
+
+export interface FileItem {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  path: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface StripeConfig {
+  id: string;
+  publicKey: string;
+  secretKey: string;
+  mode: string;
+  isActive: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  customerId: string;
+  email: string;
+  plan: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
 }
 
 export interface JarvisSettings {
@@ -112,10 +208,39 @@ export interface JarvisState {
   activeTools: string[];
   agentThinking: boolean;
 
+  // Email
+  emailAccounts: EmailAccount[];
+  emails: Email[];
+  isLoadingEmails: boolean;
+
+  // Social
+  socialAccounts: SocialAccount[];
+  socialPosts: SocialPost[];
+  isLoadingSocial: boolean;
+
+  // Campaigns
+  campaigns: Campaign[];
+  isLoadingCampaigns: boolean;
+
+  // Calendar
+  calendarEvents: CalendarEvent[];
+  isLoadingCalendar: boolean;
+
+  // Files
+  files: FileItem[];
+  isLoadingFiles: boolean;
+
+  // Stripe
+  stripeConfig: StripeConfig | null;
+  subscription: Subscription | null;
+  subscriptions: Subscription[];
+  isLoadingStripe: boolean;
+
   // UI
   activePanel: JarvisPanel;
   sidebarOpen: boolean;
   isOnline: boolean;
+  loadedPanels: Set<string>;
 
   // Settings
   voiceRate: number;
@@ -186,6 +311,36 @@ export interface JarvisActions {
   // Agent Actions
   setActiveTools: (tools: string[]) => void;
   setAgentThinking: (thinking: boolean) => void;
+
+  // Email Actions
+  loadEmails: (filters?: { isRead?: boolean; isStarred?: boolean; limit?: number }) => Promise<void>;
+  sendEmail: (to: string, subject: string, body: string) => Promise<void>;
+  markEmailRead: (id: string, read: boolean) => Promise<void>;
+  starEmail: (id: string, starred: boolean) => Promise<void>;
+
+  // Social Actions
+  loadSocialData: (platform?: string) => Promise<void>;
+  createSocialPost: (accountId: string, content: string) => Promise<void>;
+
+  // Campaign Actions
+  loadCampaigns: (status?: string) => Promise<void>;
+  createCampaign: (name: string, type: string, budget?: number) => Promise<void>;
+  updateCampaign: (id: string, data: Partial<Campaign>) => Promise<void>;
+  deleteCampaign: (id: string) => Promise<void>;
+
+  // Calendar Actions
+  loadCalendarEvents: (start?: string, end?: string) => Promise<void>;
+  createCalendarEvent: (event: { title: string; description?: string; location?: string; startTime: string; endTime: string; reminder?: number }) => Promise<void>;
+  deleteCalendarEvent: (id: string) => Promise<void>;
+
+  // File Actions
+  loadFiles: (type?: string) => Promise<void>;
+  uploadFile: (file: { name: string; type: string; size: number; path: string; content?: string; tags?: string[] }) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
+
+  // Stripe Actions
+  loadStripeConfig: () => Promise<void>;
+  configureStripe: (publicKey: string, secretKey: string, mode: string) => Promise<void>;
 
   // UI Actions
   setActivePanel: (panel: JarvisPanel) => void;
@@ -292,10 +447,39 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   activeTools: [],
   agentThinking: false,
 
+  // Email
+  emailAccounts: [],
+  emails: [],
+  isLoadingEmails: false,
+
+  // Social
+  socialAccounts: [],
+  socialPosts: [],
+  isLoadingSocial: false,
+
+  // Campaigns
+  campaigns: [],
+  isLoadingCampaigns: false,
+
+  // Calendar
+  calendarEvents: [],
+  isLoadingCalendar: false,
+
+  // Files
+  files: [],
+  isLoadingFiles: false,
+
+  // Stripe
+  stripeConfig: null,
+  subscription: null,
+  subscriptions: [],
+  isLoadingStripe: false,
+
   // UI
   activePanel: 'chat',
   sidebarOpen: true,
   isOnline: true,
+  loadedPanels: new Set<string>(),
 
   // Settings
   voiceRate: 1.0,
@@ -682,10 +866,314 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
     set({ agentThinking: thinking });
   },
 
+  // ── Email Actions ──────────────────────────────────────────────
+
+  loadEmails: async (filters?: { isRead?: boolean; isStarred?: boolean; limit?: number }) => {
+    set({ isLoadingEmails: true });
+    try {
+      const params = new URLSearchParams();
+      if (filters?.isRead !== undefined) params.set('isRead', String(filters.isRead));
+      if (filters?.isStarred !== undefined) params.set('isStarred', String(filters.isStarred));
+      if (filters?.limit !== undefined) params.set('limit', String(filters.limit));
+
+      const queryString = params.toString();
+      const url = `/api/jarvis/email${queryString ? `?${queryString}` : ''}`;
+
+      const result = await apiFetch<{ emails: Email[]; total: number }>(url);
+      if (result?.emails) {
+        set({ emails: result.emails });
+      }
+    } catch {
+      console.error('Failed to load emails');
+    } finally {
+      set({ isLoadingEmails: false });
+    }
+  },
+
+  sendEmail: async (to: string, subject: string, body: string) => {
+    set({ isLoadingEmails: true });
+    try {
+      const result = await apiFetch<{ email: Email }>('/api/jarvis/email', {
+        method: 'POST',
+        body: JSON.stringify({ to, subject, body }),
+      });
+      if (result?.email) {
+        set((s) => ({ emails: [result.email, ...s.emails] }));
+      }
+    } catch {
+      console.error('Failed to send email');
+    } finally {
+      set({ isLoadingEmails: false });
+    }
+  },
+
+  markEmailRead: async (id: string, read: boolean) => {
+    // Optimistic update
+    set((s) => ({
+      emails: s.emails.map((e) => e.id === id ? { ...e, isRead: read } : e),
+    }));
+    await apiFetch('/api/jarvis/email', {
+      method: 'PUT',
+      body: JSON.stringify({ id, isRead: read }),
+    });
+  },
+
+  starEmail: async (id: string, starred: boolean) => {
+    // Optimistic update
+    set((s) => ({
+      emails: s.emails.map((e) => e.id === id ? { ...e, isStarred: starred } : e),
+    }));
+    await apiFetch('/api/jarvis/email', {
+      method: 'PUT',
+      body: JSON.stringify({ id, isStarred: starred }),
+    });
+  },
+
+  // ── Social Actions ─────────────────────────────────────────────
+
+  loadSocialData: async (platform?: string) => {
+    set({ isLoadingSocial: true });
+    try {
+      const params = new URLSearchParams();
+      if (platform) params.set('platform', platform);
+
+      const queryString = params.toString();
+      const url = `/api/jarvis/social${queryString ? `?${queryString}` : ''}`;
+
+      const result = await apiFetch<{ accounts: (SocialAccount & { posts: SocialPost[] })[]; totalPosts: number }>(url);
+      if (result?.accounts) {
+        const accounts: SocialAccount[] = result.accounts.map(({ posts, ...account }) => account);
+        const allPosts: SocialPost[] = result.accounts.flatMap((a) => a.posts || []);
+        set({ socialAccounts: accounts, socialPosts: allPosts });
+      }
+    } catch {
+      console.error('Failed to load social data');
+    } finally {
+      set({ isLoadingSocial: false });
+    }
+  },
+
+  createSocialPost: async (accountId: string, content: string) => {
+    set({ isLoadingSocial: true });
+    try {
+      const result = await apiFetch<{ post: SocialPost }>('/api/jarvis/social', {
+        method: 'POST',
+        body: JSON.stringify({ accountId, content }),
+      });
+      if (result?.post) {
+        set((s) => ({ socialPosts: [result.post, ...s.socialPosts] }));
+      }
+    } catch {
+      console.error('Failed to create social post');
+    } finally {
+      set({ isLoadingSocial: false });
+    }
+  },
+
+  // ── Campaign Actions ───────────────────────────────────────────
+
+  loadCampaigns: async (status?: string) => {
+    set({ isLoadingCampaigns: true });
+    try {
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+
+      const queryString = params.toString();
+      const url = `/api/jarvis/campaigns${queryString ? `?${queryString}` : ''}`;
+
+      const result = await apiFetch<{ campaigns: Campaign[]; total: number }>(url);
+      if (result?.campaigns) {
+        set({ campaigns: result.campaigns });
+      }
+    } catch {
+      console.error('Failed to load campaigns');
+    } finally {
+      set({ isLoadingCampaigns: false });
+    }
+  },
+
+  createCampaign: async (name: string, type: string, budget?: number) => {
+    set({ isLoadingCampaigns: true });
+    try {
+      const result = await apiFetch<{ campaign: Campaign }>('/api/jarvis/campaigns', {
+        method: 'POST',
+        body: JSON.stringify({ name, type, budget }),
+      });
+      if (result?.campaign) {
+        set((s) => ({ campaigns: [result.campaign, ...s.campaigns] }));
+      }
+    } catch {
+      console.error('Failed to create campaign');
+    } finally {
+      set({ isLoadingCampaigns: false });
+    }
+  },
+
+  updateCampaign: async (id: string, data: Partial<Campaign>) => {
+    // Optimistic update
+    set((s) => ({
+      campaigns: s.campaigns.map((c) => c.id === id ? { ...c, ...data } : c),
+    }));
+    await apiFetch('/api/jarvis/campaigns', {
+      method: 'PUT',
+      body: JSON.stringify({ id, ...data }),
+    });
+  },
+
+  deleteCampaign: async (id: string) => {
+    // Optimistic delete
+    set((s) => ({
+      campaigns: s.campaigns.filter((c) => c.id !== id),
+    }));
+    await apiFetch(`/api/jarvis/campaigns?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ── Calendar Actions ───────────────────────────────────────────
+
+  loadCalendarEvents: async (start?: string, end?: string) => {
+    set({ isLoadingCalendar: true });
+    try {
+      const params = new URLSearchParams();
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
+
+      const queryString = params.toString();
+      const url = `/api/jarvis/calendar${queryString ? `?${queryString}` : ''}`;
+
+      const result = await apiFetch<{ events: CalendarEvent[]; total: number }>(url);
+      if (result?.events) {
+        set({ calendarEvents: result.events });
+      }
+    } catch {
+      console.error('Failed to load calendar events');
+    } finally {
+      set({ isLoadingCalendar: false });
+    }
+  },
+
+  createCalendarEvent: async (event: { title: string; description?: string; location?: string; startTime: string; endTime: string; reminder?: number }) => {
+    set({ isLoadingCalendar: true });
+    try {
+      const result = await apiFetch<{ event: CalendarEvent }>('/api/jarvis/calendar', {
+        method: 'POST',
+        body: JSON.stringify(event),
+      });
+      if (result?.event) {
+        set((s) => ({ calendarEvents: [...s.calendarEvents, result.event] }));
+      }
+    } catch {
+      console.error('Failed to create calendar event');
+    } finally {
+      set({ isLoadingCalendar: false });
+    }
+  },
+
+  deleteCalendarEvent: async (id: string) => {
+    // Optimistic delete
+    set((s) => ({
+      calendarEvents: s.calendarEvents.filter((e) => e.id !== id),
+    }));
+    await apiFetch(`/api/jarvis/calendar?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ── File Actions ───────────────────────────────────────────────
+
+  loadFiles: async (type?: string) => {
+    set({ isLoadingFiles: true });
+    try {
+      const params = new URLSearchParams();
+      if (type) params.set('type', type);
+
+      const queryString = params.toString();
+      const url = `/api/jarvis/files${queryString ? `?${queryString}` : ''}`;
+
+      const result = await apiFetch<{ files: FileItem[]; total: number }>(url);
+      if (result?.files) {
+        set({ files: result.files });
+      }
+    } catch {
+      console.error('Failed to load files');
+    } finally {
+      set({ isLoadingFiles: false });
+    }
+  },
+
+  uploadFile: async (file: { name: string; type: string; size: number; path: string; content?: string; tags?: string[] }) => {
+    set({ isLoadingFiles: true });
+    try {
+      const result = await apiFetch<{ file: FileItem }>('/api/jarvis/files', {
+        method: 'POST',
+        body: JSON.stringify(file),
+      });
+      if (result?.file) {
+        set((s) => ({ files: [result.file, ...s.files] }));
+      }
+    } catch {
+      console.error('Failed to upload file');
+    } finally {
+      set({ isLoadingFiles: false });
+    }
+  },
+
+  deleteFile: async (id: string) => {
+    // Optimistic delete
+    set((s) => ({
+      files: s.files.filter((f) => f.id !== id),
+    }));
+    await apiFetch(`/api/jarvis/files?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ── Stripe Actions ─────────────────────────────────────────────
+
+  loadStripeConfig: async () => {
+    set({ isLoadingStripe: true });
+    try {
+      const result = await apiFetch<{ stripeConfig: StripeConfig | null; subscriptions: Subscription[] }>('/api/jarvis/stripe');
+      if (result) {
+        set({
+          stripeConfig: result.stripeConfig,
+          subscription: result.subscriptions[0] || null,
+          subscriptions: result.subscriptions || [],
+        });
+      }
+    } catch {
+      console.error('Failed to load Stripe config');
+    } finally {
+      set({ isLoadingStripe: false });
+    }
+  },
+
+  configureStripe: async (publicKey: string, secretKey: string, mode: string) => {
+    set({ isLoadingStripe: true });
+    try {
+      const result = await apiFetch<{ config: StripeConfig }>('/api/jarvis/stripe', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'configure', publicKey, secretKey, mode }),
+      });
+      if (result?.config) {
+        set({ stripeConfig: result.config });
+      }
+    } catch {
+      console.error('Failed to configure Stripe');
+    } finally {
+      set({ isLoadingStripe: false });
+    }
+  },
+
   // ── UI Actions ──────────────────────────────────────────────────
 
   setActivePanel: (panel: JarvisPanel) => {
-    set({ activePanel: panel });
+    set((s) => {
+      const loadedPanels = new Set(s.loadedPanels);
+      loadedPanels.add(panel);
+      return { activePanel: panel, loadedPanels };
+    });
   },
 
   toggleSidebar: () => {

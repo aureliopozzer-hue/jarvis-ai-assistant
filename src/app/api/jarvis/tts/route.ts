@@ -50,8 +50,6 @@ export async function POST(request: NextRequest) {
         input: chunks[0],
         voice: selectedVoice,
         speed: 1.0,
-        response_format: 'mp3',
-        stream: false,
       });
 
       const arrayBuffer = await response.arrayBuffer();
@@ -73,8 +71,6 @@ export async function POST(request: NextRequest) {
         input: chunk,
         voice: selectedVoice,
         speed: 1.0,
-        response_format: 'mp3',
-        stream: false,
       });
 
       const arrayBuffer = await response.arrayBuffer();

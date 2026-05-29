@@ -615,6 +615,54 @@ export function JarvisDashboard() {
           {/* Arc Reactor Animation — CPU responsive */}
           <ArcReactor cpuUsage={cpuUsage} />
 
+          {/* System Capabilities */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="jarvis-panel p-4"
+          >
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Capacidades do Sistema
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { icon: '🧠', name: 'IA Conversacional', status: 'online', desc: 'Chat com memória e ferramentas' },
+                { icon: '👁️', name: 'Visão Computacional', status: 'online', desc: 'Análise de imagens' },
+                { icon: '🔍', name: 'Busca Web', status: 'online', desc: 'Pesquisa em tempo real' },
+                { icon: '📧', name: 'Email', status: 'online', desc: 'Leitura e envio de emails' },
+                { icon: '📱', name: 'Redes Sociais', status: 'configurar', desc: 'Monitoramento e postagem' },
+                { icon: '📊', name: 'Marketing', status: 'configurar', desc: 'Campanhas e métricas' },
+                { icon: '📅', name: 'Calendário', status: 'configurar', desc: 'Agenda e lembretes' },
+                { icon: '📁', name: 'Arquivos', status: 'configurar', desc: 'Gestão de documentos' },
+                { icon: '💳', name: 'Pagamentos', status: 'configurar', desc: 'Stripe e assinaturas' },
+                { icon: '🔊', name: 'Voz', status: 'online', desc: 'TTS e reconhecimento' },
+                { icon: '💾', name: 'Memória', status: 'online', desc: 'Fatos e preferências' },
+                { icon: '🛡️', name: 'Monitoramento', status: 'online', desc: 'CPU, RAM, disco' },
+              ].map((cap, i) => (
+                <motion.div
+                  key={cap.name}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.05 + i * 0.02 }}
+                  className="bg-jarvis-dark/50 rounded-lg p-2.5 border border-jarvis-border/10 hover:border-jarvis-cyan/20 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{cap.icon}</span>
+                    <span className="text-[10px] font-medium text-foreground/70 truncate">{cap.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className={`h-1.5 w-1.5 rounded-full ${cap.status === 'online' ? 'bg-emerald-400' : 'bg-yellow-400'}`} />
+                    <span className={`text-[8px] ${cap.status === 'online' ? 'text-emerald-400/70' : 'text-yellow-400/70'}`}>
+                      {cap.status === 'online' ? 'Online' : 'Configurar'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-muted-foreground/30 leading-tight">{cap.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
           {/* Real System Stats */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
