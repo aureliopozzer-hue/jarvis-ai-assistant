@@ -90,10 +90,34 @@ function preprocessForSpeech(text: string): string {
     .replace(/\n/g, '. ')
     // Convert numbers with comma to natural speech (1,000 → 1000)
     .replace(/(\d),(\d{3})/g, '$1$2')
-    // Add pauses after colons
-    .replace(/:\s*/g, '... ')
+    // Convert currency symbols to spoken words
+    .replace(/R\$\s*/g, 'reais ')
+    .replace(/\$\s*/g, 'dólares ')
+    // Convert percentage to spoken form
+    .replace(/(\d)\s*%/g, '$1 por cento')
+    // Convert common abbreviations to full words
+    .replace(/\bvs\.?\b/gi, 'versus')
+    .replace(/\betc\.?\b/gi, 'etcétera')
+    .replace(/\bi\.e\.?\b/gi, 'isto é')
+    .replace(/\be\.g\.?\b/gi, 'por exemplo')
+    .replace(/\bCEO\b/g, 'CEO')
+    .replace(/\bCFO\b/g, 'CFO')
+    .replace(/\bCTO\b/g, 'CTO')
+    .replace(/\bNPS\b/g, 'N P S')
+    .replace(/\bROI\b/g, 'R O I')
+    .replace(/\bKPI\b/g, 'K P I')
+    .replace(/\bAPI\b/g, 'A P I')
+    .replace(/\bSaaS\b/g, 'S a a S')
+    .replace(/\bB2B\b/g, 'B dois B')
+    .replace(/\bB2C\b/g, 'B dois C')
+    // Add natural pauses before "portanto", "assim", "logo" (conclusive conjunctions)
+    .replace(/\s+(portanto|assim|logo|pois|consequentemente|por consequência|por isso)\s*/gi, '... $1 ')
     // Add pauses before "mas", "porém", "entretanto" (natural Portuguese pauses)
     .replace(/\s+(mas|porém|entretanto|contudo|todavia|no entanto)\s*/gi, '... $1 ')
+    // Add slight pauses after "senhor", "senhora" (respectful address)
+    .replace(/\b(senhor|senhora)\b/gi, '$1, ')
+    // Add pauses after colons
+    .replace(/:\s*/g, '... ')
     // Clean up multiple periods/spaces
     .replace(/\.{2,}/g, '...')
     .replace(/\s{2,}/g, ' ')

@@ -1,33 +1,61 @@
+# JARVIS Project Worklog
+
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Fix dev server, connect voice to all functions, enhance voice, provide requirements
+Task: Fix hydration mismatch in FloatingParticles component
 
 Work Log:
-- Investigated dev server crash — server was dying after shell session ended
-- Found CORS cross-origin warning from preview panel in dev log
-- Fixed next.config.ts — added allowedDevOrigins for .space-z.ai and .z.ai domains
-- Created detached server launcher script (/tmp/jarvis-launcher.js) for persistent process
-- Verified server compiles and serves pages correctly (GET / 200)
-- Created comprehensive voice command router connecting voice to ALL 15 JARVIS panels:
-  - Navigation: chat, vision, search, dashboard, email, social, campaigns, calendar, files, stripe, finance, weather, automation, tasks, news
-  - Portuguese keyword mapping for each panel (e.g., "email", "e-mail", "correio", "caixa de entrada" → email panel)
-  - Direct action commands: finance briefing, memory save, web search, email send
-  - Panel auto-loading data on navigation
-  - Voice confirmation for each navigation ("Abrindo Mercado Financeiro.")
-- Enhanced voice humanization:
-  - TTS speed reduced from 1.0 to 0.92 for authoritative, deliberate delivery
-  - Fallback Web Speech API rate set to 0.92, pitch to 0.95
-  - Added Portuguese voice preference (pt-BR Google first)
-  - Created preprocessForSpeech() function with:
-    - Markdown stripping (code blocks, bold, italic, links, headings, lists)
-    - Natural pause insertion (... after colons, before conjunctions like "mas", "porém")
-    - Number formatting for natural speech
-  - All speech now preprocessed for natural delivery
-- Verified all code compiles without errors
+- Identified `Math.random()` in `FloatingParticles` component causing SSR/client hydration mismatch
+- Replaced with pre-computed deterministic `PARTICLE_DATA` array (20 particles with fixed values)
+- Fixed `new Date().getFullYear()` in footer to static "2025" to prevent timezone hydration mismatch
 
 Stage Summary:
-- Dev server running on port 3000, serving pages correctly
-- Voice commands now route to all 15 JARVIS functions directly
-- Voice is more humanized with slower speed, natural pauses, Portuguese optimization
-- No compilation errors
+- FloatingParticles now uses deterministic values — no more hydration mismatch
+- Footer year hardcoded to avoid SSR/client drift
+- Lint passes, page loads with 200 status
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix cross-origin blocking of /_next/* resources from preview iframe
+
+Work Log:
+- Added `preview-chat-01052e57-800c-49a0-bc19-a9bc8cbc574d.space-z.ai` to `allowedDevOrigins` in `next.config.ts`
+- Server auto-restarted after config change
+
+Stage Summary:
+- Cross-origin warnings resolved after config update
+- Page serves correctly from preview iframe
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Read and analyze current codebase state
+
+Work Log:
+- Read `page.tsx` (1300+ lines), `jarvis-store.ts` (1400+ lines), all hooks, API routes
+- Identified 22 module integrations, 15+ API endpoints
+- Mapped all components and their dependencies
+
+Stage Summary:
+- Full codebase understanding achieved
+- Identified hydration mismatch and cross-origin issues as root causes of broken preview
+
+---
+Task ID: 4
+Agent: Sub-agent (full-stack-developer)
+Task: Enhance voice commands and voice humanization
+
+Work Log:
+- Added 10 new voice-triggered actions (agendar, criar tarefa, criar automação, status do sistema, ler página, gerar imagem, clima, cotação, parar fala, voltar)
+- Implemented rotating confirmation phrases (6 variants) for humanized panel navigation
+- Enhanced preprocessForSpeech with currency/percentage/abbreviation handling
+- Added SSML-like markup processing to TTS API route
+- Lint passes after changes
+
+Stage Summary:
+- Voice commands now cover ALL 15+ JARVIS functions
+- Humanized confirmations with varied phrasing
+- TTS preprocessing converts symbols to natural speech
+- Micro-pauses added for natural rhythm

@@ -248,20 +248,44 @@ function ArcReactor({ size = 200 }: { size?: number }) {
 
 // ─── Floating Particles ──────────────────────────────────────────────────
 
+// Pre-computed particle data to avoid Math.random() hydration mismatch
+const PARTICLE_DATA = [
+  { left: 12.5, dur: 10, delay: 0.5, opacity: 0.3, w: 2, h: 2 },
+  { left: 28.7, dur: 14, delay: 2.1, opacity: 0.45, w: 1.5, h: 1.8 },
+  { left: 45.2, dur: 9, delay: 4.3, opacity: 0.25, w: 2.5, h: 1.2 },
+  { left: 63.8, dur: 18, delay: 1.7, opacity: 0.5, w: 1.2, h: 2.8 },
+  { left: 81.4, dur: 11, delay: 6.2, opacity: 0.35, w: 1.8, h: 1.5 },
+  { left: 7.3, dur: 16, delay: 3.8, opacity: 0.4, w: 2.2, h: 2.3 },
+  { left: 34.9, dur: 12, delay: 8.1, opacity: 0.55, w: 1.3, h: 1.7 },
+  { left: 56.1, dur: 15, delay: 0.9, opacity: 0.28, w: 2.8, h: 1.4 },
+  { left: 72.6, dur: 8, delay: 5.4, opacity: 0.38, w: 1.6, h: 2.6 },
+  { left: 91.3, dur: 13, delay: 7.5, opacity: 0.48, w: 2.1, h: 1.1 },
+  { left: 19.8, dur: 17, delay: 2.6, opacity: 0.22, w: 1.9, h: 2.1 },
+  { left: 40.5, dur: 10, delay: 9.2, opacity: 0.42, w: 2.4, h: 1.9 },
+  { left: 58.7, dur: 14, delay: 4.7, opacity: 0.33, w: 1.1, h: 2.4 },
+  { left: 76.2, dur: 11, delay: 1.3, opacity: 0.52, w: 2.7, h: 1.6 },
+  { left: 3.6, dur: 19, delay: 6.8, opacity: 0.27, w: 1.4, h: 2.2 },
+  { left: 25.4, dur: 9, delay: 3.2, opacity: 0.43, w: 2.3, h: 1.3 },
+  { left: 47.8, dur: 16, delay: 8.5, opacity: 0.31, w: 1.7, h: 2.7 },
+  { left: 69.1, dur: 12, delay: 0.2, opacity: 0.46, w: 2.6, h: 1.8 },
+  { left: 85.9, dur: 15, delay: 5.9, opacity: 0.36, w: 1.2, h: 2.5 },
+  { left: 15.2, dur: 18, delay: 7.1, opacity: 0.29, w: 2.0, h: 1.4 },
+];
+
 function FloatingParticles() {
   return (
     <div className="jarvis-particles">
-      {[...Array(20)].map((_, i) => (
+      {PARTICLE_DATA.map((p, i) => (
         <div
           key={i}
           className="jarvis-particle"
           style={{
-            left: `${Math.random() * 100}%`,
-            animationDuration: `${8 + Math.random() * 12}s`,
-            animationDelay: `${Math.random() * 10}s`,
-            opacity: 0.2 + Math.random() * 0.4,
-            width: 1 + Math.random() * 2,
-            height: 1 + Math.random() * 2,
+            left: `${p.left}%`,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            opacity: p.opacity,
+            width: p.w,
+            height: p.h,
           }}
         />
       ))}
@@ -642,7 +666,7 @@ function LandingPage({ onEnterDashboard }: { onEnterDashboard: () => void }) {
               <span className="text-sm font-semibold tracking-wider text-jarvis-cyan/60">J.A.R.V.I.S.</span>
             </div>
             <p className="text-xs text-jarvis-cyan/30">
-              &copy; {new Date().getFullYear()} JARVIS. Todos os direitos reservados.
+              &copy; 2025 JARVIS. Todos os direitos reservados.
             </p>
             <p className="text-xs text-jarvis-cyan/30">
               Powered by <span className="text-jarvis-cyan/50 font-semibold">Z.AI</span>
@@ -790,33 +814,198 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
   const { playActivation, playDeactivation, playNotification, playSuccess, playWakeWord, playMessageSent } = useSoundEffects();
 
   // Voice hook for greeting and auto-speak
-  const { speak: speakVoice } = useJarvisVoice();
+  const { speak: speakVoice, stop: stopVoice } = useJarvisVoice();
+
+  // ─── Varied confirmation phrases for more humanized responses ──────────
+  const confirmPhrases = [
+    (panel: string) => `Abrindo o painel de ${panel}, senhor.`,
+    (panel: string) => `Acessando ${panel}. Um momento.`,
+    (panel: string) => `${panel} ativado. Estou à disposição.`,
+    (panel: string) => `Redirecionando para ${panel}.`,
+    (panel: string) => `Claro, senhor. Abrindo ${panel}.`,
+    (panel: string) => `${panel} à sua frente.`,
+  ];
+  const confirmIdxRef = useRef(0);
+  const getConfirmPhrase = (panel: string): string => {
+    const phrase = confirmPhrases[confirmIdxRef.current % confirmPhrases.length](panel);
+    confirmIdxRef.current++;
+    return phrase;
+  };
 
   // ─── Voice Command Router ──────────────────────────────────────────────
   const routeVoiceCommand = (cmd: string): boolean => {
     const store = useJarvisStore.getState();
     const c = cmd.toLowerCase().trim();
 
-    // Navigation commands — instantly switch panels
+    // ── Priority commands (must run before navMap) ──────────────────────
+
+    // Stop speaking — "pare" / "silêncio" / "calar" / "parar"
+    if (/\b(pare|sil[eê]ncio|calar|parar|para|quieto|shut up)\b/.test(c)) {
+      stopVoice();
+      playSuccess();
+      return true;
+    }
+
+    // Go back to landing — "voltar" / "sair" / "tela inicial"
+    if (/\b(voltar|sair|tela inicial|tela de entrada|landing)\b/.test(c)) {
+      onBackToLanding();
+      playSuccess();
+      speakVoice('Retornando à tela inicial, senhor.');
+      return true;
+    }
+
+    // Calendar create event — "agendar" / "criar evento" / "marcar reunião"
+    if (/\b(agendar|criar evento|marcar reuni[eeãa]o|novo evento|nova reuni[eieãa]o)\b/.test(c)) {
+      setActivePanel('calendar');
+      store.loadCalendarEvents();
+      playSuccess();
+      speakVoice(getConfirmPhrase('Calendário'));
+      // Fall through to LLM so it can parse event details from the command
+      store.setVoiceInitiated(true);
+      store.sendMessage(cmd.trim());
+      return true;
+    }
+
+    // Task create — "criar tarefa" / "nova tarefa"
+    if (/\b(criar tarefa|nova tarefa|nova task|novo to-do|novo todo|adicionar tarefa)\b/.test(c)) {
+      setActivePanel('tasks');
+      store.loadTasks();
+      store.loadProjects();
+      playSuccess();
+      speakVoice(getConfirmPhrase('Tarefas'));
+      store.setVoiceInitiated(true);
+      store.sendMessage(cmd.trim());
+      return true;
+    }
+
+    // Automation create — "criar automação" / "nova rotina"
+    if (/\b(criar automa[cç][aã]o|nova rotina|nova automa[cç][aã]o|novo workflow|criar rotina)\b/.test(c)) {
+      setActivePanel('automation');
+      store.loadAutomations();
+      playSuccess();
+      speakVoice(getConfirmPhrase('Automações'));
+      store.setVoiceInitiated(true);
+      store.sendMessage(cmd.trim());
+      return true;
+    }
+
+    // System status — "como está o sistema" / "status do sistema" / "tudo funcionando"
+    if (/\b(como est[aá] o sistema|status do sistema|tudo funcionando|relat[oó]rio do sistema|sa[uú]de do sistema|diagn[oó]stico)\b/.test(c)) {
+      setActivePanel('dashboard');
+      playSuccess();
+      // Build a brief status summary from the store
+      const stats = store.systemStats;
+      const notifCount = store.notifications.filter(n => !n.read).length;
+      let statusMsg = 'Todos os sistemas operacionais';
+      if (stats) {
+        const cpuPct = stats.cpu.usage;
+        const memPct = stats.memory.percentage;
+        const cpuOk = cpuPct < 80;
+        const memOk = memPct < 80;
+        statusMsg = cpuOk && memOk
+          ? `Sistema operacional. CPU em ${Math.round(cpuPct)} por cento, memória em ${Math.round(memPct)} por cento. ${notifCount > 0 ? `Há ${notifCount} alerta${notifCount > 1 ? 's' : ''} pendente${notifCount > 1 ? 's' : ''}.` : 'Sem alertas pendentes.'}`
+          : `Atenção: CPU em ${Math.round(cpuPct)} por cento, memória em ${Math.round(memPct)} por cento. Recursos elevados, senhor.`;
+      }
+      speakVoice(statusMsg);
+      return true;
+    }
+
+    // Read page — "ler página" / "ler url" / "ler site"
+    if (/\b(ler p[aá]gina|ler url|ler site|leia p[aá]gina|leia site|leia url|extrair conte[uú]do)\b/.test(c)) {
+      setActivePanel('search');
+      playSuccess();
+      speakVoice(getConfirmPhrase('Leitura de Páginas'));
+      return false; // let LLM handle the URL extraction
+    }
+
+    // Generate image — "gere uma imagem" / "criar imagem" / "gerar imagem"
+    if (/\b(gere uma imagem|gerar imagem|criar imagem|gera uma imagem|cria uma imagem|gere imagem)\b/.test(c)) {
+      setActivePanel('chat');
+      playSuccess();
+      speakVoice('Preparando o módulo de geração de imagens, senhor.');
+      return false; // let LLM handle image generation via tool
+    }
+
+    // Weather with speech summary — "como está o tempo" / "previsão do tempo" / "clima"
+    if (/\b(como est[aá] o tempo|previs[aã]o do tempo|clima de|clima em|tempo em|tempo para|meteorologia)\b/.test(c)) {
+      setActivePanel('weather');
+      playSuccess();
+      // Extract city if specified, default to São Paulo
+      const cityMatch = c.match(/(?:em|de|para)\s+([\w\s]+?)(?:\s*$|\s+e|\s+,)/);
+      const city = cityMatch ? cityMatch[1].trim() : 'São Paulo';
+      store.loadWeather(city).then(() => {
+        const wd = useJarvisStore.getState().weatherData;
+        if (wd) {
+          speakVoice(`Em ${wd.city}, ${wd.condition.toLowerCase()}, temperatura de ${Math.round(wd.temperature)} graus, sensação térmica de ${Math.round(wd.feelsLike)} graus. Umidade em ${wd.humidity} por cento, ventos de ${Math.round(wd.windSpeed)} quilômetros por hora.`);
+        } else {
+          speakVoice('Não consegui obter os dados climáticos no momento, senhor.');
+        }
+      });
+      return true;
+    }
+
+    // Finance quote specific — "cotação do dólar" / "cotação do bitcoin" / "preço da ação"
+    if (/\b(cota[cç][aã]o do d[oó]lar|cota[cç][aã]o do bitcoin|cota[cç][aã]o do euro|pre[cç]o da a[cç][aã]o|cota[cç][aã]o da|cota[cç][aã]o do|pre[cç]o do|pre[cç]o da)\b/.test(c)) {
+      setActivePanel('finance');
+      playSuccess();
+      // Map common names to tickers
+      const tickerMap: Record<string, string> = {
+        'dólar': 'USDBRL=X', 'dolar': 'USDBRL=X', 'dollar': 'USDBRL=X',
+        'euro': 'EURBRL=X',
+        'bitcoin': 'BTC-USD', 'btc': 'BTC-USD',
+        'ethereum': 'ETH-USD', 'ether': 'ETH-USD',
+        'ibovespa': '^BVSP', 'bvsp': '^BVSP',
+      };
+      let ticker = '';
+      for (const [name, t] of Object.entries(tickerMap)) {
+        if (c.includes(name)) { ticker = t; break; }
+      }
+      // If not in map, try extracting the ticker from the command
+      if (!ticker) {
+        const tickerMatch = c.match(/(?:a[cç][aã]o|ticker)\s+(?:da |do )?([a-z0-9.]+)/i);
+        ticker = tickerMatch ? tickerMatch[1].toUpperCase() : '';
+      }
+      if (ticker) {
+        store.loadFinanceQuotes([ticker]).then(() => {
+          const quotes = useJarvisStore.getState().financeQuotes;
+          const quote = quotes.find(q => q.ticker === ticker);
+          if (quote) {
+            const direction = quote.change >= 0 ? 'alta' : 'baixa';
+            speakVoice(`${quote.name}: ${quote.currency === 'BRL' ? 'R$' : quote.currency} ${quote.price.toFixed(2)}. ${direction} de ${Math.abs(quote.changePercent).toFixed(2)} por cento.`);
+          } else {
+            speakVoice('Não consegui obter a cotação no momento, senhor.');
+          }
+        });
+      } else {
+        store.loadFinanceQuotes();
+        store.loadFinanceNews();
+        store.loadFinanceWatchlist();
+        store.loadFinanceAlerts();
+        speakVoice(getConfirmPhrase('Mercado Financeiro'));
+      }
+      return true;
+    }
+
+    // ── Navigation commands — instantly switch panels ──────────────────
     const navMap: Record<string, string> = {
       'chat': 'chat', 'conversa': 'chat', 'conversar': 'chat', 'mensagem': 'chat', 'mensagens': 'chat',
       'visão': 'vision', 'visao': 'vision', 'imagem': 'vision', 'ver imagem': 'vision', 'analisar imagem': 'vision',
       'busca': 'search', 'buscar': 'search', 'pesquisa': 'search', 'pesquisar': 'search', 'procurar': 'search',
-      'painel': 'dashboard', 'dashboard': 'dashboard', 'sistema': 'dashboard', 'status': 'dashboard', 'monitor': 'dashboard',
+      'painel': 'dashboard', 'dashboard': 'dashboard', 'sistema': 'dashboard', 'monitor': 'dashboard',
       'email': 'email', 'e-mail': 'email', 'correio': 'email', 'caixa de entrada': 'email', 'ler email': 'email', 'ler e-mail': 'email', 'ver email': 'email', 'emails': 'email',
       'social': 'social', 'redes sociais': 'social', 'rede social': 'social', 'instagram': 'social', 'twitter': 'social', 'postar': 'social',
       'campanha': 'campaigns', 'campanhas': 'campaigns', 'marketing': 'campaigns', 'anúncio': 'campaigns', 'anuncios': 'campaigns',
-      'calendário': 'calendar', 'calendario': 'calendar', 'agenda': 'calendar', 'evento': 'calendar', 'eventos': 'calendar', 'reunião': 'calendar', 'reuniao': 'calendar',
+      'calendário': 'calendar', 'calendario': 'calendar', 'agenda': 'calendar', 'eventos': 'calendar',
       'arquivo': 'files', 'arquivos': 'files', 'documento': 'files', 'documentos': 'files', 'pasta': 'files',
       'pagamento': 'stripe', 'pagamentos': 'stripe', 'stripe': 'stripe', 'cobrança': 'stripe', 'cobranca': 'stripe', 'assinatura': 'stripe', 'faturamento': 'stripe',
-      'finança': 'finance', 'financas': 'finance', 'financeiro': 'finance', 'mercado': 'finance', 'bolsa': 'finance', 'ação': 'finance', 'acoes': 'finance', 'cotacao': 'finance', 'cotação': 'finance', 'ibovespa': 'finance', 'dólar': 'finance', 'dolar': 'finance', 'bitcoin': 'finance', 'cripto': 'finance',
-      'clima': 'weather', 'tempo': 'weather', 'previsão': 'weather', 'previsao': 'weather', 'temperatura': 'weather', 'chuva': 'weather',
+      'finança': 'finance', 'financas': 'finance', 'financeiro': 'finance', 'mercado': 'finance', 'bolsa': 'finance', 'ação': 'finance', 'acoes': 'finance', 'ibovespa': 'finance',
+      'clima': 'weather', 'tempo': 'weather', 'previsão': 'weather', 'previsao': 'weather', 'temperatura': 'weather',
       'automação': 'automation', 'automacao': 'automation', 'automatizar': 'automation', 'rotina': 'automation', 'rotinas': 'automation', 'workflow': 'automation',
       'tarefa': 'tasks', 'tarefas': 'tasks', 'todo': 'tasks', 'to-do': 'tasks', 'projeto': 'tasks', 'projetos': 'tasks',
-      'notícia': 'news', 'noticias': 'news', 'notícia': 'news', 'jornal': 'news', 'informação': 'news', 'informacoes': 'news',
+      'notícia': 'news', 'noticias': 'news', 'jornal': 'news', 'informação': 'news', 'informacoes': 'news',
     };
 
-    // Check navigation first
+    // Check navigation
     for (const [keyword, panel] of Object.entries(navMap)) {
       if (c.includes(keyword)) {
         setActivePanel(panel as any);
@@ -839,7 +1028,7 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
           case 'search': break;
           case 'chat': break;
         }
-        // Speak a confirmation
+        // Speak a humanized confirmation
         const panelNames: Record<string, string> = {
           chat: 'Conversa', vision: 'Visão Computacional', search: 'Busca na Web',
           dashboard: 'Painel do Sistema', email: 'E-mail', social: 'Redes Sociais',
@@ -847,24 +1036,23 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
           stripe: 'Pagamentos', finance: 'Mercado Financeiro', weather: 'Previsão do Tempo',
           automation: 'Automações', tasks: 'Tarefas', news: 'Notícias',
         };
-        speakVoice(`Abrindo ${panelNames[panel] || panel}.`);
+        speakVoice(getConfirmPhrase(panelNames[panel] || panel));
         return true;
       }
     }
 
-    // Direct action commands — trigger store functions + navigate
-    // Finance-specific commands
+    // ── Direct action commands — trigger store functions + navigate ──────
+    // Finance briefing
     if (c.includes('panorama') || c.includes('resumo financeiro') || c.includes('briefing')) {
       setActivePanel('finance');
       store.loadFinanceBriefing();
-      speakVoice('Gerando panorama financeiro do dia.');
+      speakVoice('Gerando o panorama financeiro do dia, senhor. Um momento.');
       return true;
     }
 
     // Memory commands
     if (c.includes('lembre') || c.includes('lembrar') || c.includes('memória') || c.includes('memoria')) {
       if (c.includes('lembre') || c.includes('lembrar')) {
-        // Save a memory
         const memoryContent = c.replace(/.*(?:lembre|lembrar)(?:-se)?\s*(?:de|que)?\s*/i, '').trim();
         if (memoryContent) {
           store.addMemory({ category: 'personal', key: 'reminder', value: memoryContent });
@@ -873,13 +1061,7 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
         }
       }
       setActivePanel('chat');
-      return false; // fall through to LLM for memory recall
-    }
-
-    // Image generation command
-    if (c.includes('gere') || c.includes('gerar imagem') || c.includes('criar imagem') || c.includes('gera uma imagem') || c.includes('cria uma imagem')) {
-      setActivePanel('chat');
-      return false; // let LLM handle image generation via tool
+      return false;
     }
 
     // Web search command — instant search
@@ -897,7 +1079,7 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
     if (c.includes('enviar email') || c.includes('enviar e-mail') || c.includes('mande email') || c.includes('mandar email')) {
       setActivePanel('email');
       store.loadEmails();
-      return false; // let LLM handle the composition
+      return false;
     }
 
     // Not a direct command — fall through to LLM
