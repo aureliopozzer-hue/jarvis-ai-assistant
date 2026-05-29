@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Valid voices: tongtong, chuichui, xiaochen, jam, kazi, douji, luodo
-    const selectedVoice = voice || 'jam'; // jam = English gentleman voice
+    const selectedVoice = voice || 'tongtong'; // tongtong = natural, clear voice (best for JARVIS)
 
     if (chunks.length === 1) {
       // Single chunk - stream directly

@@ -110,6 +110,7 @@ export function JarvisInput() {
     wakeWordState,
     setWakeWordActive,
     setWakeWordState,
+    setVoiceInitiated,
   } = useJarvisStore();
 
   // Cleanup recorder on unmount
@@ -178,10 +179,17 @@ export function JarvisInput() {
             if (response.ok) {
               const data = await response.json();
               if (data.text && data.text.trim()) {
-                setMessage(data.text.trim());
+                const transcribedText = data.text.trim();
                 // Auto-switch to chat if on another panel
                 if (activePanel !== 'chat' && activePanel !== 'search') {
                   setActivePanel('chat');
+                }
+                // Auto-send voice message with TTS response
+                setVoiceInitiated(true);
+                if (activePanel === 'search') {
+                  await searchWeb(transcribedText);
+                } else {
+                  await sendMessage(transcribedText);
                 }
               }
             }
@@ -207,7 +215,7 @@ export function JarvisInput() {
         console.error('Microphone access error:', error);
       }
     }
-  }, [isListening, startListening, stopListening, activePanel, setActivePanel, setWakeWordState]);
+  }, [isListening, startListening, stopListening, activePanel, setActivePanel, setWakeWordState, setVoiceInitiated, sendMessage, searchWeb]);
 
   const handleImageAttach = useCallback(() => {
     fileInputRef.current?.click();

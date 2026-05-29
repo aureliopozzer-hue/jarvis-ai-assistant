@@ -1,28 +1,49 @@
 ---
 Task ID: 1
-Agent: Main Orchestrator
-Task: Implement all recommended features + futuristic landing page with pricing
+Agent: Main
+Task: Fix preview and verify server is running
 
 Work Log:
-- Generated hero image and features background for landing page using AI image generation
-- Created futuristic landing page with Hero, Features (22 modules), Pricing (R$97/mês), Testimonials, CTA, Footer sections
-- Landing page includes Arc Reactor animation, floating particles, holographic shimmer effects
-- Dashboard toggle: Landing page (default) ↔ JARVIS Dashboard via state switch
-- Added 4 new backend API routes: Weather, Automation, Tasks, News
-- Updated Prisma schema with 4 new models: Automation, Task, Project, WeatherCache
-- Ran `bun run db:push` to sync schema
-- Updated JARVIS store with 5 new interfaces and 14 new actions
-- Created 4 new UI panel components: Weather, Automation, Tasks, News
-- Updated sidebar navigation with 4 new panels (Weather, Automation, Tasks, News)
-- Updated page.tsx to import/render all new panels
-- Added panel header icons and labels for new panels
-- Added auto-load logic for new panels in dashboard useEffect
-- Lint passes clean (0 errors)
-- All previously working APIs still return 200
+- Verified dev server was not running on port 3000
+- Restarted dev server with nohup
+- Confirmed server returns HTTP 200 for GET /
+- Ran lint check - all clean
 
 Stage Summary:
-- Landing page with futuristic JARVIS theme (22 features, R$97/mês pricing, testimonials, stats)
-- 15 → 15+4 = 19 sidebar panels total (Chat, Vision, Search, Finance, Weather, News, Tasks, Automation, Email, Social, Campaigns, Calendar, Files, Stripe, Dashboard)
-- 4 new API routes (weather, automation, tasks, news) with full CRUD
-- 4 new Prisma models (Automation, Task, Project, WeatherCache)
-- Single recurring pricing model: R$ 97/mês for ALL features
+- Dev server is running and serving pages correctly
+- Page renders with landing page content including Arc Reactor, features, pricing
+---
+Task ID: 2
+Agent: full-stack-developer
+Task: Connect voice commands to ALL JARVIS functions with auto-speak
+
+Work Log:
+- Added `voiceInitiated: boolean` state to jarvis-store.ts
+- Added `setVoiceInitiated` action to store
+- Modified wake word onCommand handler in page.tsx to set voiceInitiated=true
+- Added auto-speak useEffect in page.tsx that watches for assistant messages when voiceInitiated
+- Strips markdown formatting from responses for natural speech
+- Changed TTS default voice from 'jam' to 'tongtong' for better Portuguese
+- Added "Comportamento de Voz" section to JARVIS system prompt for voice-optimized responses
+- Modified jarvis-input.tsx to auto-send voice messages and set voiceInitiated
+
+Stage Summary:
+- Voice commands now flow: "Hey Jarvis" → command → sendMessage → auto-speak response
+- All 16+ JARVIS capabilities accessible via voice through chat+tools pipeline
+- TTS responses auto-play after voice-initiated messages
+- Markdown stripped for natural speech output
+---
+Task ID: 3
+Agent: Main
+Task: Make JARVIS voice more humanized with Portuguese TTS
+
+Work Log:
+- Changed TTS voice from 'jam' to 'tongtong' for better quality
+- Added voice behavior section to system prompt
+- Voice responses are concise and natural for spoken conversation
+- Auto-speak after voice commands creates conversational flow
+
+Stage Summary:
+- TTS uses 'tongtong' voice (more natural)
+- System prompt instructs natural voice responses
+- Voice conversation flow implemented

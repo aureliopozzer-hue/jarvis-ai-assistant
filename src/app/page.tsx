@@ -789,6 +789,9 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
   // Sound effects hook
   const { playActivation, playDeactivation, playNotification, playSuccess, playWakeWord, playMessageSent } = useSoundEffects();
 
+  // Voice hook for greeting and auto-speak
+  const { speak: speakVoice } = useJarvisVoice();
+
   // Wake word hook
   const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported, commandText } = useWakeWord({
     autoStart: false,
@@ -800,13 +803,11 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
       const store = useJarvisStore.getState();
       if (cmd.trim()) {
         playMessageSent();
+        store.setVoiceInitiated(true);
         store.sendMessage(cmd.trim());
       }
     },
   });
-
-  // Voice hook for greeting
-  const { speak: speakVoice } = useJarvisVoice();
 
   // Proactive hook
   useProactive({ autoStart: true, interval: 30000 });
@@ -911,18 +912,43 @@ function JarvisDashboardView({ onBackToLanding }: { onBackToLanding: () => void 
 
   // Play sound on messages
   const messages = useJarvisStore((s) => s.messages);
+  const voiceInitiated = useJarvisStore((s) => s.voiceInitiated);
   const prevMsgCountRef = useRef(0);
+  const lastSpokenMsgRef = useRef<string>('');
   useEffect(() => {
     if (messages.length > prevMsgCountRef.current && prevMsgCountRef.current > 0) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg?.role === 'assistant') {
         playSuccess();
+
+        // Auto-speak when voice-initiated
+        if (voiceInitiated && lastMsg.id !== lastSpokenMsgRef.current) {
+          lastSpokenMsgRef.current = lastMsg.id;
+          // Strip markdown for more natural speech
+          const speechText = lastMsg.content
+            .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+            .replace(/`[^`]+`/g, '') // Remove inline code
+            .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+            .replace(/\*([^*]+)\*/g, '$1') // Remove italic
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
+            .replace(/^#{1,6}\s+/gm, '') // Remove headings
+            .replace(/^[-*+]\s+/gm, '') // Remove list markers
+            .replace(/^\d+\.\s+/gm, '') // Remove numbered list markers
+            .replace(/\n{2,}/g, '. ') // Replace double newlines with period
+            .replace(/\n/g, '. ') // Replace newlines with period
+            .trim();
+
+          if (speechText) {
+            speakVoice(speechText);
+          }
+          useJarvisStore.getState().setVoiceInitiated(false);
+        }
       } else if (lastMsg?.role === 'user') {
         playMessageSent();
       }
     }
     prevMsgCountRef.current = messages.length;
-  }, [messages.length, playSuccess, playMessageSent]);
+  }, [messages.length, playSuccess, playMessageSent, voiceInitiated, speakVoice]);
 
   // Play deactivation sound on page unload
   useEffect(() => {

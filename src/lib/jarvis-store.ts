@@ -315,6 +315,9 @@ export interface JarvisState {
   // Ambient Mode
   ambientMode: boolean;
 
+  // Voice-Initiated Message Flag
+  voiceInitiated: boolean;
+
   // Agent
   activeTools: string[];
   agentThinking: boolean;
@@ -445,6 +448,9 @@ export interface JarvisActions {
 
   // Ambient Mode Actions
   toggleAmbientMode: () => void;
+
+  // Voice-Initiated Actions
+  setVoiceInitiated: (v: boolean) => void;
 
   // Agent Actions
   setActiveTools: (tools: string[]) => void;
@@ -618,6 +624,9 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
 
   // Ambient Mode
   ambientMode: false,
+
+  // Voice-Initiated
+  voiceInitiated: false,
 
   // Agent
   activeTools: [],
@@ -1057,6 +1066,12 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
 
   toggleAmbientMode: () => {
     set((s) => ({ ambientMode: !s.ambientMode }));
+  },
+
+  // ── Voice-Initiated Actions ──────────────────────────────────────
+
+  setVoiceInitiated: (v: boolean) => {
+    set({ voiceInitiated: v });
   },
 
   // ── Agent Actions ──────────────────────────────────────────────
