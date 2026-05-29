@@ -191,6 +191,9 @@ export default function Home() {
 
   // Handle online/offline events
   useEffect(() => {
+    // Set initial online status after hydration to avoid mismatch
+    useJarvisStore.getState().setOnlineStatus(navigator.onLine);
+
     const handleOnline = () => useJarvisStore.getState().setOnlineStatus(true);
     const handleOffline = () => useJarvisStore.getState().setOnlineStatus(false);
 

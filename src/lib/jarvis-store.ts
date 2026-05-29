@@ -197,7 +197,7 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   // UI
   activePanel: 'chat',
   sidebarOpen: true,
-  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  isOnline: true,
 
   // Settings
   voiceRate: 1.0,
