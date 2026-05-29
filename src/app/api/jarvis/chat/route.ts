@@ -3,6 +3,8 @@ import { getZAI, JARVIS_SYSTEM_PROMPT } from '@/lib/zai';
 import { db } from '@/lib/db';
 import { parseToolCalls, stripToolCalls, executeTool } from '@/lib/jarvis-tools';
 
+export const maxDuration = 60;
+
 // ─── Background Memory Extraction ───────────────────────────────────
 
 interface ExtractedMemory {

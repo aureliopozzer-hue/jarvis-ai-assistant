@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getZAI } from '@/lib/zai';
 
+export const maxDuration = 60;
+
 // ─── ZAI Proxy for External VPS Deployment ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // This route proxies ZAI SDK calls so that an external VPS can use the
 // Z.AI API through the sandbox's internal access.

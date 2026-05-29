@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getZAI } from '@/lib/zai';
 
+export const maxDuration = 60;
+
 // ─── SSML-like markup processing for more natural speech ────────────
 
 /**

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getZAI } from '@/lib/zai';
 
+export const maxDuration = 60;
+
 interface SearchResult {
   name: string;
   url: string;
