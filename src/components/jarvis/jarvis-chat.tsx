@@ -16,32 +16,11 @@ import {
   Sparkles,
   FileText,
   Code,
-  Cpu,
 } from 'lucide-react';
 import { useJarvisStore, type Message } from '@/lib/jarvis-store';
+import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-
-// ─── TTS Helper ──────────────────────────────────────────────────────
-
-const speak = (text: string, voiceRate: number, voicePitch: number) => {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'pt-BR';
-  utterance.rate = voiceRate;
-  utterance.pitch = voicePitch;
-  // Try to find a Portuguese voice
-  const voices = window.speechSynthesis.getVoices();
-  const ptVoice = voices.find((v) => v.lang.startsWith('pt'));
-  if (ptVoice) utterance.voice = ptVoice;
-
-  const store = useJarvisStore.getState();
-  store.startSpeaking();
-  utterance.onend = () => store.stopSpeaking();
-  utterance.onerror = () => store.stopSpeaking();
-  window.speechSynthesis.speak(utterance);
-};
 
 // ─── Quick Actions ───────────────────────────────────────────────────
 
@@ -163,12 +142,12 @@ function TypingIndicator() {
 function MessageBubble({
   message,
   onSpeak,
-  isSpeaking,
+  isCurrentlySpeaking,
   autoSpeak,
 }: {
   message: Message;
   onSpeak: (text: string) => void;
-  isSpeaking: boolean;
+  isCurrentlySpeaking: boolean;
   autoSpeak: boolean;
 }) {
   const isUser = message.role === 'user';
@@ -254,6 +233,15 @@ function MessageBubble({
           )}
         </div>
 
+        {/* Voice wave animation when speaking this message */}
+        {isCurrentlySpeaking && !isUser && (
+          <div className="jarvis-voice-wave mt-2 text-jarvis-cyan">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="jarvis-voice-bar" />
+            ))}
+          </div>
+        )}
+
         {/* Footer: timestamp + speak button */}
         <div
           className={cn(
@@ -265,9 +253,9 @@ function MessageBubble({
             <button
               onClick={() => onSpeak(message.content)}
               className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded hover:bg-jarvis-cyan/10"
-              title={isSpeaking ? 'Falando...' : 'Ouvir mensagem'}
+              title={isCurrentlySpeaking ? 'Falando...' : 'Ouvir mensagem'}
             >
-              {isSpeaking ? (
+              {isCurrentlySpeaking ? (
                 <VolumeX className="h-3.5 w-3.5 text-jarvis-cyan animate-pulse" />
               ) : (
                 <Volume2 className="h-3.5 w-3.5 text-muted-foreground hover:text-jarvis-cyan" />
@@ -373,28 +361,13 @@ function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => v
 export function JarvisChat() {
   const messages = useJarvisStore((s) => s.messages);
   const isLoading = useJarvisStore((s) => s.isLoading);
-  const isSpeaking = useJarvisStore((s) => s.isSpeaking);
   const autoSpeak = useJarvisStore((s) => s.autoSpeak);
-  const voiceRate = useJarvisStore((s) => s.voiceRate);
-  const voicePitch = useJarvisStore((s) => s.voicePitch);
   const sendMessage = useJarvisStore((s) => s.sendMessage);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const { speak: speakVoice, stop: stopVoice, isSpeaking: voiceSpeaking, state: voiceState } = useJarvisVoice();
 
-  // Load voices for TTS
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const loadVoices = () => {
-      window.speechSynthesis.getVoices();
-      setVoicesLoaded(true);
-    };
-    loadVoices();
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    return () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-    };
-  }, []);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -411,22 +384,43 @@ export function JarvisChat() {
     if (
       lastMessage.role === 'assistant' &&
       lastMessage !== lastMessageRef.current &&
-      autoSpeak &&
-      voicesLoaded
+      autoSpeak
     ) {
       lastMessageRef.current = lastMessage;
-      speak(lastMessage.content, voiceRate, voicePitch);
+      requestAnimationFrame(() => {
+        setSpeakingMessageId(lastMessage.id);
+      });
+      speakVoice(lastMessage.content);
     } else {
       lastMessageRef.current = lastMessage;
     }
-  }, [messages, autoSpeak, voiceRate, voicePitch, voicesLoaded]);
+  }, [messages, autoSpeak, speakVoice]);
 
-  // Handle speak button
+  // Track when speaking stops to clear the speaking message
+  useEffect(() => {
+    if (!voiceSpeaking) {
+      requestAnimationFrame(() => {
+        setSpeakingMessageId(null);
+      });
+    }
+  }, [voiceSpeaking]);
+
+  // Sync speaking state with store
+  useEffect(() => {
+    const store = useJarvisStore.getState();
+    if (voiceSpeaking && !store.isSpeaking) {
+      store.startSpeaking();
+    } else if (!voiceSpeaking && store.isSpeaking) {
+      store.stopSpeaking();
+    }
+  }, [voiceSpeaking]);
+
+  // Handle speak button for a specific message
   const handleSpeak = useCallback(
     (text: string) => {
-      speak(text, voiceRate, voicePitch);
+      speakVoice(text);
     },
-    [voiceRate, voicePitch]
+    [speakVoice]
   );
 
   // Handle quick action
@@ -439,6 +433,33 @@ export function JarvisChat() {
 
   return (
     <div className="flex flex-col h-full jarvis-grid-bg">
+      {/* Voice speaking indicator bar */}
+      <AnimatePresence>
+        {voiceSpeaking && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center justify-center gap-2 py-1.5 bg-jarvis-cyan/5 border-b border-jarvis-cyan/10"
+          >
+            <div className="jarvis-voice-wave text-jarvis-cyan">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="jarvis-voice-bar" />
+              ))}
+            </div>
+            <span className="text-[10px] font-medium text-jarvis-cyan/60 ml-2">
+              {voiceState === 'loading' ? 'Carregando voz...' : 'Falando...'}
+            </span>
+            <button
+              onClick={stopVoice}
+              className="ml-2 text-[10px] text-jarvis-cyan/40 hover:text-jarvis-cyan transition-colors"
+            >
+              Parar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {messages.length === 0 && !isLoading ? (
         <WelcomeScreen onQuickAction={handleQuickAction} />
       ) : (
@@ -452,7 +473,7 @@ export function JarvisChat() {
                 key={message.id}
                 message={message}
                 onSpeak={handleSpeak}
-                isSpeaking={isSpeaking}
+                isCurrentlySpeaking={voiceSpeaking && speakingMessageId === message.id}
                 autoSpeak={autoSpeak}
               />
             ))}

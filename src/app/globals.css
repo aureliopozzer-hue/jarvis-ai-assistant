@@ -324,4 +324,148 @@
     from { opacity: 0; transform: translateX(20px); }
     to { opacity: 1; transform: translateX(0); }
   }
+
+  /* Wake word breathing indicator */
+  .jarvis-wake-breathing {
+    animation: wakeBreathing 2s ease-in-out infinite;
+  }
+
+  @keyframes wakeBreathing {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.6), 0 0 40px rgba(0, 212, 255, 0.2);
+      transform: scale(1.05);
+    }
+  }
+
+  /* Wake word detected flash */
+  .jarvis-wake-flash {
+    animation: wakeFlash 0.6s ease-out;
+  }
+
+  @keyframes wakeFlash {
+    0% {
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.8), 0 0 60px rgba(0, 212, 255, 0.4);
+      transform: scale(1.1);
+    }
+    100% {
+      box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+      transform: scale(1);
+    }
+  }
+
+  /* Voice wave animation */
+  .jarvis-voice-wave {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .jarvis-voice-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: currentColor;
+    animation: voiceBar 0.8s ease-in-out infinite;
+  }
+
+  .jarvis-voice-bar:nth-child(1) { animation-delay: 0s; height: 8px; }
+  .jarvis-voice-bar:nth-child(2) { animation-delay: 0.1s; height: 16px; }
+  .jarvis-voice-bar:nth-child(3) { animation-delay: 0.2s; height: 24px; }
+  .jarvis-voice-bar:nth-child(4) { animation-delay: 0.3s; height: 16px; }
+  .jarvis-voice-bar:nth-child(5) { animation-delay: 0.4s; height: 8px; }
+
+  @keyframes voiceBar {
+    0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+    50% { transform: scaleY(1); opacity: 1; }
+  }
+
+  /* System stat bar */
+  .jarvis-stat-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 212, 255, 0.15);
+    overflow: hidden;
+  }
+
+  .jarvis-stat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease-in-out;
+  }
+
+  /* Holographic shimmer */
+  .jarvis-holo-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .jarvis-holo-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent 40%,
+      rgba(0, 212, 255, 0.05) 45%,
+      rgba(0, 212, 255, 0.1) 50%,
+      rgba(0, 212, 255, 0.05) 55%,
+      transparent 60%
+    );
+    animation: holoShimmer 3s ease-in-out infinite;
+  }
+
+  @keyframes holoShimmer {
+    0% { transform: translateX(-100%) translateY(-100%); }
+    100% { transform: translateX(100%) translateY(100%); }
+  }
+
+  /* Proactive notification glow */
+  .jarvis-proactive-glow {
+    animation: proactiveGlow 1.5s ease-in-out;
+  }
+
+  @keyframes proactiveGlow {
+    0% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.6); }
+    50% { box-shadow: 0 0 20px 5px rgba(0, 212, 255, 0.3); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
+  }
+
+  /* Data stream effect */
+  .jarvis-data-stream {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 212, 255, 0.03) 50%,
+      transparent 100%
+    );
+    background-size: 100% 200%;
+    animation: dataStream 2s linear infinite;
+  }
+
+  @keyframes dataStream {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 0% 200%; }
+  }
+
+  /* Ring pulse for system monitoring */
+  .jarvis-ring-pulse {
+    animation: ringPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes ringPulse {
+    0%, 100% {
+      border-color: rgba(0, 212, 255, 0.2);
+      box-shadow: 0 0 5px rgba(0, 212, 255, 0.1);
+    }
+    50% {
+      border-color: rgba(0, 212, 255, 0.5);
+      box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    }
+  }
 }

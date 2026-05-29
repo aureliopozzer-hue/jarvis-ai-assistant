@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import type { WakeWordState } from '@/hooks/use-wake-word';
+import type { SystemStats } from '@/hooks/use-system-monitor';
 
 // ─── Type Definitions ───────────────────────────────────────────────
 
@@ -37,6 +39,15 @@ export type JarvisPanel = 'chat' | 'vision' | 'search' | 'dashboard';
 export type JarvisPersonality = 'professional' | 'friendly' | 'witty';
 export type JarvisLanguage = 'pt-BR' | 'en-US';
 
+export interface Memory {
+  id: string;
+  category: string;
+  key: string;
+  value: string;
+  source: string;
+  createdAt: string;
+}
+
 export interface JarvisSettings {
   voiceRate: number;
   voicePitch: number;
@@ -71,6 +82,19 @@ export interface JarvisState {
   notifications: Notification[];
   unreadCount: number;
 
+  // Wake Word
+  wakeWordActive: boolean;
+  wakeWordState: WakeWordState;
+
+  // System Stats
+  systemStats: SystemStats | null;
+
+  // Memories
+  memories: Memory[];
+
+  // Proactive
+  proactivePolling: boolean;
+
   // UI
   activePanel: JarvisPanel;
   sidebarOpen: boolean;
@@ -82,6 +106,36 @@ export interface JarvisState {
   jarvisPersonality: JarvisPersonality;
   autoSpeak: boolean;
   language: JarvisLanguage;
+
+  // Wake Word
+  wakeWordActive: boolean;
+  wakeWordState: 'idle' | 'listening' | 'awake' | 'processing';
+
+  // System Monitor
+  systemStats: {
+    cpu: { usage: number; cores: number; model: string };
+    memory: { total: number; used: number; free: number; percentage: number };
+    uptime: number;
+    loadAvg: number[];
+    platform: string;
+    hostname: string;
+    timestamp: string;
+  } | null;
+
+  // Memory (long-term)
+  memories: Array<{
+    id: string;
+    category: string;
+    key: string;
+    value: string;
+    source: string;
+    important: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+
+  // Proactive
+  proactivePolling: boolean;
 }
 
 export interface JarvisActions {
@@ -116,6 +170,21 @@ export interface JarvisActions {
   markAsRead: (id: string) => Promise<void>;
   clearNotifications: () => void;
 
+  // Wake Word Actions
+  setWakeWordActive: (active: boolean) => void;
+  setWakeWordState: (state: WakeWordState) => void;
+
+  // System Stats Actions
+  setSystemStats: (stats: SystemStats | null) => void;
+
+  // Memory Actions
+  loadMemories: () => Promise<void>;
+  addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
+  removeMemory: (id: string) => void;
+
+  // Proactive Actions
+  setProactivePolling: (polling: boolean) => void;
+
   // UI Actions
   setActivePanel: (panel: JarvisPanel) => void;
   toggleSidebar: () => void;
@@ -124,6 +193,21 @@ export interface JarvisActions {
   // Settings Actions
   updateSettings: (settings: Partial<JarvisSettings>) => Promise<void>;
   loadSettings: () => Promise<void>;
+
+  // Wake Word Actions
+  setWakeWordActive: (active: boolean) => void;
+  setWakeWordState: (state: 'idle' | 'listening' | 'awake' | 'processing') => void;
+
+  // System Monitor Actions
+  setSystemStats: (stats: JarvisState['systemStats']) => void;
+
+  // Memory Actions
+  loadMemories: () => Promise<void>;
+  addMemory: (memory: { category: string; key: string; value: string; source?: string; important?: boolean }) => Promise<void>;
+  removeMemory: (id: string) => Promise<void>;
+
+  // Proactive Actions
+  setProactivePolling: (polling: boolean) => void;
 }
 
 // ─── Helper: Generate a unique ID ───────────────────────────────────
@@ -194,6 +278,19 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   notifications: [],
   unreadCount: 0,
 
+  // Wake Word
+  wakeWordActive: false,
+  wakeWordState: 'idle',
+
+  // System Stats
+  systemStats: null,
+
+  // Memories
+  memories: [],
+
+  // Proactive
+  proactivePolling: false,
+
   // UI
   activePanel: 'chat',
   sidebarOpen: true,
@@ -205,6 +302,19 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
   jarvisPersonality: 'professional',
   autoSpeak: false,
   language: 'en-US',
+
+  // Wake Word
+  wakeWordActive: false,
+  wakeWordState: 'idle',
+
+  // System Monitor
+  systemStats: null,
+
+  // Memory
+  memories: [],
+
+  // Proactive
+  proactivePolling: false,
 
   // ── Chat Actions ────────────────────────────────────────────────
 
@@ -491,6 +601,50 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
     set({ notifications: [], unreadCount: 0 });
   },
 
+  // ── Wake Word Actions ──────────────────────────────────────────
+
+  setWakeWordActive: (active: boolean) => {
+    set({ wakeWordActive: active });
+  },
+
+  setWakeWordState: (state: WakeWordState) => {
+    set({ wakeWordState: state });
+  },
+
+  // ── System Stats Actions ───────────────────────────────────────
+
+  setSystemStats: (stats: SystemStats | null) => {
+    set({ systemStats: stats });
+  },
+
+  // ── Memory Actions ─────────────────────────────────────────────
+
+  loadMemories: async () => {
+    const result = await apiFetch<{ memories: Memory[] }>('/api/jarvis/memory');
+    if (result?.memories) {
+      set({ memories: result.memories });
+    }
+  },
+
+  addMemory: (memory) => {
+    const newMemory: Memory = {
+      ...memory,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    set((s) => ({ memories: [newMemory, ...s.memories] }));
+  },
+
+  removeMemory: (id: string) => {
+    set((s) => ({ memories: s.memories.filter((m) => m.id !== id) }));
+  },
+
+  // ── Proactive Actions ──────────────────────────────────────────
+
+  setProactivePolling: (polling: boolean) => {
+    set({ proactivePolling: polling });
+  },
+
   // ── UI Actions ──────────────────────────────────────────────────
 
   setActivePanel: (panel: JarvisPanel) => {
@@ -531,5 +685,57 @@ export const useJarvisStore = create<JarvisState & JarvisActions>((set, get) => 
         language: result.language ?? 'en-US',
       });
     }
+  },
+
+  // ── Wake Word Actions ─────────────────────────────────────────────
+
+  setWakeWordActive: (active: boolean) => {
+    set({ wakeWordActive: active });
+  },
+
+  setWakeWordState: (state: 'idle' | 'listening' | 'awake' | 'processing') => {
+    set({ wakeWordState: state });
+  },
+
+  // ── System Monitor Actions ────────────────────────────────────────
+
+  setSystemStats: (stats: JarvisState['systemStats']) => {
+    set({ systemStats: stats });
+  },
+
+  // ── Memory Actions ───────────────────────────────────────────────
+
+  loadMemories: async () => {
+    const result = await apiFetch<{ memories: Array<{ id: string; category: string; key: string; value: string; source: string; important: boolean; createdAt: string; updatedAt: string }> }>('/api/jarvis/memory');
+    if (result?.memories) {
+      set({ memories: result.memories });
+    }
+  },
+
+  addMemory: async (memory: { category: string; key: string; value: string; source?: string; important?: boolean }) => {
+    await apiFetch('/api/jarvis/memory', {
+      method: 'POST',
+      body: JSON.stringify(memory),
+    });
+    // Reload memories after adding
+    await get().loadMemories();
+  },
+
+  removeMemory: async (id: string) => {
+    // Optimistically remove from local state
+    set((s) => ({
+      memories: s.memories.filter((m) => m.id !== id),
+    }));
+
+    // Persist to API
+    await apiFetch(`/api/jarvis/memory?id=${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ── Proactive Actions ────────────────────────────────────────────
+
+  setProactivePolling: (polling: boolean) => {
+    set({ proactivePolling: polling });
   },
 }));

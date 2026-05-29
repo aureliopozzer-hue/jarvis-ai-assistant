@@ -52,3 +52,24 @@ model ProactiveEvent {
   lastRun   DateTime?
   createdAt DateTime @default(now())
 }
+
+model Memory {
+  id        String   @id @default(cuid())
+  category  String   // "preference" | "fact" | "routine" | "context" | "note"
+  key       String
+  value     String
+  source    String   @default("user") // "user" | "system" | "inferred"
+  important Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, key])
+}
+
+model UserFact {
+  id        String   @id @default(cuid())
+  fact      String
+  context   String?  // conversation context where this was learned
+  confidence Float  @default(1.0)
+  createdAt DateTime @default(now())
+}

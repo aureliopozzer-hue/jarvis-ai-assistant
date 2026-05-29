@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -29,6 +29,10 @@ import { JarvisVision } from '@/components/jarvis/jarvis-vision';
 import { JarvisSearch } from '@/components/jarvis/jarvis-search';
 import { JarvisDashboard } from '@/components/jarvis/jarvis-dashboard';
 import { useJarvisStore, type Notification } from '@/lib/jarvis-store';
+import { useWakeWord } from '@/hooks/use-wake-word';
+import { useJarvisVoice } from '@/hooks/use-jarvis-voice';
+import { useProactive } from '@/hooks/use-proactive';
+import { useSystemMonitor } from '@/hooks/use-system-monitor';
 
 // ─── Right Sidebar - Notifications ───────────────────────────────────
 
@@ -160,8 +164,74 @@ function getGreeting(): string {
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function Home() {
-  const { activePanel, loadConversations, loadNotifications } = useJarvisStore();
+  const { activePanel, loadConversations, loadNotifications, wakeWordActive, wakeWordState, setWakeWordActive, setWakeWordState, setActivePanel } = useJarvisStore();
 
+  // Wake word hook
+  const { state: wakeWordHookState, startListening: startWakeListening, stopListening: stopWakeListening, resetWake, isSupported: wakeWordSupported } = useWakeWord({
+    autoStart: false,
+    onWake: () => {
+      // When wake word is detected, switch to chat panel
+      setActivePanel('chat');
+      // The store's wakeWordState will be synced via effect below
+    },
+  });
+
+  // Voice hook for greeting
+  const { speak: speakVoice } = useJarvisVoice();
+
+  // Proactive hook — auto-starts polling
+  useProactive({ autoStart: true, interval: 30000 });
+
+  // System monitor hook — auto-starts polling
+  const { data: systemData } = useSystemMonitor({ autoStart: true });
+
+  // Sync system data to store
+  useEffect(() => {
+    if (systemData) {
+      useJarvisStore.getState().setSystemStats(systemData);
+    }
+  }, [systemData]);
+
+  // Sync wake word state from hook to store
+  useEffect(() => {
+    setWakeWordState(wakeWordHookState);
+  }, [wakeWordHookState, setWakeWordState]);
+
+  // Start/stop wake word based on store flag
+  useEffect(() => {
+    if (wakeWordActive && wakeWordSupported) {
+      startWakeListening();
+    } else if (!wakeWordActive) {
+      stopWakeListening();
+      setWakeWordState('idle');
+    }
+  }, [wakeWordActive, wakeWordSupported, startWakeListening, stopWakeListening, setWakeWordState]);
+
+  // When wake word detects "jarvis", auto-switch to chat and reset after 3s
+  const wakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (wakeWordState === 'awake') {
+      setActivePanel('chat');
+
+      // Clear any existing timer
+      if (wakeResetTimerRef.current) {
+        clearTimeout(wakeResetTimerRef.current);
+      }
+
+      // Reset after 3 seconds
+      wakeResetTimerRef.current = setTimeout(() => {
+        resetWake();
+      }, 3000);
+    }
+
+    return () => {
+      if (wakeResetTimerRef.current) {
+        clearTimeout(wakeResetTimerRef.current);
+      }
+    };
+  }, [wakeWordState, setActivePanel, resetWake]);
+
+  // Initial data loading and greeting
   useEffect(() => {
     // Initial data loading
     loadConversations();
@@ -186,8 +256,18 @@ export default function Home() {
           read: false,
         });
       }, 1000);
+
+      // Initial greeting voice — only once per session
+      const greeted = sessionStorage.getItem('jarvis-greeted');
+      if (!greeted) {
+        sessionStorage.setItem('jarvis-greeted', 'true');
+        setTimeout(() => {
+          const greeting = getGreeting();
+          speakVoice(`Sistema JARVIS online. ${greeting}, senhor. Como posso ajudar?`);
+        }, 2000);
+      }
     }
-  }, [loadConversations, loadNotifications]);
+  }, [loadConversations, loadNotifications, speakVoice]);
 
   // Handle online/offline events
   useEffect(() => {
@@ -221,6 +301,21 @@ export default function Home() {
 
   return (
     <div className="jarvis-grid-bg flex h-screen flex-col overflow-hidden bg-jarvis-dark">
+      {/* Wake word visual flash overlay */}
+      <AnimatePresence>
+        {wakeWordState === 'awake' && (
+          <motion.div
+            initial={{ opacity: 0.6 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="fixed inset-0 pointer-events-none z-50"
+            style={{
+              background: 'radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%)',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Top Header */}
       <div className="shrink-0 px-2 pt-2 md:px-3 md:pt-3">
         <JarvisHeader />

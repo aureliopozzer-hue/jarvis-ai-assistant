@@ -12,6 +12,8 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Radio,
+  SignalZero,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,9 @@ export function JarvisHeader() {
     unreadCount,
     sidebarOpen,
     toggleSidebar,
+    wakeWordActive,
+    wakeWordState,
+    setWakeWordActive,
   } = useJarvisStore();
 
   const [time, setTime] = useState<string>('');
@@ -124,6 +129,41 @@ export function JarvisHeader() {
 
         {/* Right section - Status & Actions */}
         <div className="flex items-center gap-1 md:gap-2">
+          {/* Wake Word Status */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setWakeWordActive(!wakeWordActive)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-jarvis-cyan/10 cursor-pointer"
+              >
+                {wakeWordActive && wakeWordState === 'listening' ? (
+                  <>
+                    <Radio className="h-3.5 w-3.5 text-jarvis-cyan jarvis-wake-breathing" />
+                    <span className="hidden text-[10px] font-medium text-jarvis-cyan md:inline">LISTENING</span>
+                  </>
+                ) : wakeWordState === 'awake' ? (
+                  <>
+                    <Radio className="h-3.5 w-3.5 text-jarvis-cyan jarvis-pulse" />
+                    <span className="hidden text-[10px] font-bold text-jarvis-cyan md:inline">AWAKE</span>
+                  </>
+                ) : wakeWordState === 'processing' ? (
+                  <>
+                    <Radio className="h-3.5 w-3.5 text-jarvis-cyan jarvis-pulse" />
+                    <span className="hidden text-[10px] font-medium text-jarvis-cyan/70 md:inline">PROCESSING</span>
+                  </>
+                ) : (
+                  <>
+                    <SignalZero className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="hidden text-[10px] font-medium text-muted-foreground md:inline">SLEEP</span>
+                  </>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{wakeWordActive ? 'Wake word ativo — clique para desativar' : 'Wake word inativo — clique para ativar'}</p>
+            </TooltipContent>
+          </Tooltip>
+
           {/* Connection Status */}
           <Tooltip>
             <TooltipTrigger asChild>

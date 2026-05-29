@@ -9,6 +9,8 @@ import {
   ImagePlus,
   X,
   Loader2,
+  Radio,
+  SignalZero,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +106,10 @@ export function JarvisInput() {
     stopListening,
     setVisionImage,
     setActivePanel,
+    wakeWordActive,
+    wakeWordState,
+    setWakeWordActive,
+    setWakeWordState,
   } = useJarvisStore();
 
   // Cleanup recorder on unmount
@@ -112,6 +118,20 @@ export function JarvisInput() {
       recorderRef.current?.cancel();
     };
   }, []);
+
+  // Auto-focus input when wake word detects "jarvis"
+  useEffect(() => {
+    if (wakeWordState === 'awake') {
+      if (activePanel !== 'chat') {
+        setActivePanel('chat');
+      }
+      // Small delay to ensure panel switch has occurred
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [wakeWordState, activePanel, setActivePanel]);
 
   const handleSend = useCallback(async () => {
     const trimmed = message.trim();
@@ -143,6 +163,7 @@ export function JarvisInput() {
       // Stop recording and transcribe
       if (recorderRef.current) {
         try {
+          setWakeWordState('processing');
           const base64Audio = await recorderRef.current.stop();
           stopListening();
 
@@ -170,8 +191,10 @@ export function JarvisInput() {
           stopListening();
         }
         recorderRef.current = null;
+        setWakeWordState('idle');
       } else {
         stopListening();
+        setWakeWordState('idle');
       }
     } else {
       // Start recording
@@ -182,10 +205,9 @@ export function JarvisInput() {
         startListening();
       } catch (error) {
         console.error('Microphone access error:', error);
-        // Could show a toast notification here
       }
     }
-  }, [isListening, startListening, stopListening, activePanel, setActivePanel]);
+  }, [isListening, startListening, stopListening, activePanel, setActivePanel, setWakeWordState]);
 
   const handleImageAttach = useCallback(() => {
     fileInputRef.current?.click();
@@ -221,6 +243,7 @@ export function JarvisInput() {
   }, []);
 
   const getPlaceholder = () => {
+    if (wakeWordState === 'awake') return 'JARVIS detectado! Fale ou digite...';
     if (isListening) return 'Ouvindo...';
     if (isSpeaking) return 'JARVIS está falando...';
 
@@ -238,9 +261,11 @@ export function JarvisInput() {
     }
   };
 
+  const isWakeAwake = wakeWordState === 'awake';
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="jarvis-panel jarvis-hud-corner p-3 md:p-4">
+      <div className={`jarvis-panel jarvis-hud-corner p-3 md:p-4 transition-shadow duration-500 ${isWakeAwake ? 'jarvis-wake-flash' : ''}`}>
         {/* Image Preview */}
         <AnimatePresence>
           {imagePreview && (
@@ -302,6 +327,23 @@ export function JarvisInput() {
           )}
         </AnimatePresence>
 
+        {/* Wake Word Awake Indicator */}
+        <AnimatePresence>
+          {isWakeAwake && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              className="mb-3 flex items-center gap-2"
+            >
+              <Radio className="h-4 w-4 text-jarvis-cyan jarvis-pulse" />
+              <span className="text-xs font-medium text-jarvis-cyan">
+                Wake word detectado! Fale ou digite seu comando...
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Input Row */}
         <div className="flex items-center gap-2">
           {/* Attach Image Button */}
@@ -338,9 +380,36 @@ export function JarvisInput() {
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
               disabled={isListening || isSpeaking}
-              className="h-10 rounded-lg border-jarvis-border bg-jarvis-dark/50 pr-3 text-sm text-jarvis-cyan/90 placeholder:text-jarvis-cyan/25 focus-visible:ring-jarvis-cyan/30"
+              className={`h-10 rounded-lg border-jarvis-border bg-jarvis-dark/50 pr-3 text-sm text-jarvis-cyan/90 placeholder:text-jarvis-cyan/25 focus-visible:ring-jarvis-cyan/30 transition-shadow duration-300 ${
+                isWakeAwake ? 'shadow-[0_0_15px_rgba(0,212,255,0.3),inset_0_0_10px_rgba(0,212,255,0.1)] border-jarvis-cyan/50' : ''
+              }`}
             />
           </div>
+
+          {/* Wake Word Toggle Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setWakeWordActive(!wakeWordActive)}
+                className={`h-9 w-9 shrink-0 ${
+                  wakeWordActive
+                    ? 'text-jarvis-cyan bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20'
+                    : 'text-jarvis-cyan/30 hover:bg-jarvis-cyan/10 hover:text-jarvis-cyan/60'
+                }`}
+              >
+                {wakeWordActive ? (
+                  <Radio className="h-4 w-4 jarvis-wake-breathing" />
+                ) : (
+                  <SignalZero className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{wakeWordActive ? 'Desativar Wake Word' : 'Ativar Wake Word'}</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Microphone Button */}
           <Tooltip>
